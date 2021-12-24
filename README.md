@@ -1,0 +1,2 @@
+# WotlkData
+AiCore Scraping Project
