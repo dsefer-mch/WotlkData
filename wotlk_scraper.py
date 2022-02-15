@@ -1,11 +1,13 @@
-from tabnanny import verbose
 from wotlk_scraper_bot import ScraperBot
+from tabnanny import verbose
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 import pandas as pd
 import re
+
 
 
 class Scraper(ScraperBot):
@@ -26,48 +28,31 @@ class Scraper(ScraperBot):
         self.list_of_items = []
 
     def nav_to_main_page(self):
-        action = ActionChains(self.driver)
-        database = self.driver.find_element(By.LINK_TEXT, 'Database')
-        action.move_to_element(database)
-        action.perform()
-        items = self.driver.find_element(
-            By.XPATH, "/html/body/div[7]/div/div/a[4]/span")
-        action.move_to_element(items)
-        action.perform()
+        database = self.hoover_over(text='Database')
+        items = self.hoover_over(xpath="//span[text()='Items']")
+
         if self.item in Scraper.weapons:
-            weapons = self.driver.find_element(By.LINK_TEXT, 'Weapons')
-            action.move_to_element(weapons)
-            action.perform()
-            weapon = self.driver.find_element(By.LINK_TEXT, self.item).click()
-            action.perform()
+            weapons = self.hoover_over(text='Weapons')
+            weapon = self.click_text(text=self.item)
             try:
-                filter_button = self.driver.find_element(By.XPATH, '//*[@id="fi_toggle"]').text
-                print('FILTER ON/OFF?', filter_button)
-                if filter_button == 'Create a filter':
-                    button = self.driver.find_element(By.XPATH, '//*[@id="fi_toggle"]').click()
-                action.perform()
+                filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
+                print('FILTER ON/OFF?', filter_switch)
+                if filter_switch == 'Create a filter':
+                    button = self.click_xpath(xpath='//*[@id="fi_toggle"]')
             except:
-                EC.NoSuchElementException
+                print('Filter switch not found.')
         else:
-            armor = self.driver.find_element(By.LINK_TEXT, 'Armor')
-            action.move_to_element(armor)
-            action.perform()
+            armor = self.hoover_over(text='Armor')
             if self.item in Scraper.armor_08:
-                armor_type_menu = self.driver.find_element(
-                    By.LINK_TEXT, self.arm_type)
-                action.move_to_element(armor_type_menu)
-                action.perform()
-                armor_item = self.driver.find_element(
-                    By.LINK_TEXT, self.item).click()
-                action.perform()
+                armor_type_menu = self.hoover_over(text=self.arm_type)
+                armor_item = self.click_text(text=self.item)
                 try:
-                    filter_button = self.driver.find_element(By.XPATH, '//*[@id="fi_toggle"]').text
-                    print('FILTER ON/OFF?', filter_button)
-                    if filter_button == 'Create a filter':
-                        button = self.driver.find_element(By.XPATH, '//*[@id="fi_toggle"]').click()
-                    action.perform()
+                    filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
+                    print('FILTER ON/OFF?', filter_switch)
+                    if filter_switch == 'Create a filter':
+                        button = self.click_xpath(xpath='//*[@id="fi_toggle"]')
                 except:
-                    EC.NoSuchElementException
+                    print('Filter switch not found.')
 
     def use_web_filter(self):
         min_item_lvl = 1
@@ -76,13 +61,8 @@ class Scraper(ScraperBot):
         bott_ilvl = 0
         top_ilvl = 9
         for ilvl_set in [(bott_ilvl + i, top_ilvl + i) for i in range(min_item_lvl, max_item_lvl, step)]:
-            min_lvl = self.driver.find_element(By.NAME, 'minle')
-            min_lvl.clear()
-            min_lvl.send_keys(ilvl_set[0])
-            max_lvl = self.driver.find_element(By.NAME, 'maxle')
-            max_lvl.clear()
-            max_lvl.send_keys(ilvl_set[1])
-            max_lvl.send_keys(Keys.RETURN)
+            min_lvl = self.input_name('minle', ilvl_set[0])
+            min_lvl = self.input_name('maxle', ilvl_set[1])
             self.driver.implicitly_wait(10)
             self.scrape_item_nums()
 
@@ -100,7 +80,7 @@ class Scraper(ScraperBot):
         for i in self.list_of_items:
             if verbose == True:
                 print('this is just the element i :', i)
-            self.driver.get("https://wotlkdb.com/?item=" + i[1])
+            self.set_url("https://wotlkdb.com/?item=" + i[1])
             scraped_data = self.driver.find_element(
                 By.XPATH, "(//TD)[4]/../../../..").text
             libr = {
@@ -112,12 +92,17 @@ class Scraper(ScraperBot):
 
 if __name__ == '__main__':
 
-    s = Scraper('Waist', 'Mail')
-    s.verbose = True
-    s.accept_cookies()
-    s.nav_to_main_page()
-    s.use_web_filter()
-    s.scrape_item_nums()
-    s.scrape_the_items()
-    s.delete_cookies()
-    s.driver.quit()
+
+    # chrome_options = Options()
+    # chrome_options.add_argument('--headless')
+    # chrome_options.add_argument('--no-sandbox')
+
+    bot = ScraperBot(url='https://wotlkdb.com')
+    bot.accept_cookies(xpath='//*[@id="ncmp__tool"]')
+    scrape_test1 = Scraper('Guns')
+    scrape_test1.nav_to_main_page()
+    scrape_test1.use_web_filter()
+    scrape_test1.scrape_item_nums()
+    scrape_test1.scrape_the_items
+    bot.delete_cookies()
+    bot.driver.quit()
