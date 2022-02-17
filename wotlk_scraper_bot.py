@@ -1,3 +1,5 @@
+from re import I
+from tabnanny import verbose
 from selenium.webdriver import Chrome
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
@@ -8,48 +10,103 @@ import requests
 from time import sleep
 
 
-
 class ScraperBot():
 
-    def __init__(self, url, options=None):
+    def __init__(self, url='https://wotlkdb.com', options=None):
         print(self)
-        
+
         self.url = url
         if options:
-            self.driver = Chrome(ChromeDriverManager().install(), options=options)
+            self.driver = Chrome(
+                ChromeDriverManager().install(), options=options)
         else:
             self.driver = Chrome(ChromeDriverManager().install())
         self.driver.get(self.url)
         self.driver.maximize_window()
         self.driver.implicitly_wait(10)
 
-
     def accept_cookies(self, xpath=None, iframe=None):
         sleep(5)
-        try:
-            if iframe:
+        accept_button = None
+        if iframe:
+            try:
                 self.driver.switch_to.frame(iframe)
-            accept_button = self.driver.find_element(By.PARTIAL_LINK_TEXT, 'Accept')
-            if accept_button == None:
+            except:
+                if verbose:
+                    print('Unable to switch to selected iframe')
+        if xpath:
+            try:
                 accept_button = self.driver.find_element(By.XPATH, xpath)
-            accept_button.click()
-        except:
-            print('Cookies not detected.')
+            except:
+                if verbose:
+                    print('Xpath object not found')
+        if not accept_button:
+            print('accept but', accept_button)
+            try:
+                print('im trying accept button')
+                accept_button = self.driver.find_element(By.LINK_TEXT, 'Accept')
+            except:
+                if verbose:
+                    print('"Accept" button not found')
+        print(accept_button)
+        if accept_button:
+            try:
+                accept_button.click()
+            except:
+                if verbose:
+                    print('Cookies not detected.')
 
-    def hoover_over(self, text= str, xpath=None):
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+        # print('starti...')
+        # try:
+        #     print('tryin')
+        #     if iframe:
+        #         print('is it iframe?')
+        #         self.driver.switch_to.frame(iframe)
+        # except:
+        #     print('No iframe for the coockies set')
+        # try:
+        #     accept_button = self.driver.find_element(
+        #         By.LINK_TEXT, 'Accept')
+        #     print(accept_button)
+        #     if accept_button == None:
+        #         accept_button = self.driver.find_element(By.XPATH, xpath)
+        #         print('xpath',accept_button)
+        #     accept_button.click()
+        # except:
+        #     print('Cookies not detected.')
+
+    def hoover_over(self, text=None, xpath=None):
         action = ActionChains(self.driver)
         if text:
-            action.move_to_element(text)
+            print(text)
+            text_obj = self.driver.find_element(By.LINK_TEXT, text)
+            print(text_obj)
+            action.move_to_element(text_obj)
             action.perform()
         if xpath:
-            action.move_to_element(xpath)
+            xpath_obj = self.driver.find_element(By.XPATH, xpath)
+            action.move_to_element(xpath_obj)
             action.perform()
 
     def click_text(self, text):
         self.driver.find_element(By.LINK_TEXT, text).click()
 
     def click_xpath(self, xpath):
-        self.driver.find_element(By.LINK_TEXT, xpath).click()
+        print(xpath)
+        print(self)
+        self.driver.find_element(By.XPATH, xpath).click()
 
     def click_href(self, href):
         self.driver.find_element(By.LINK_TEXT, href).click()
@@ -58,29 +115,37 @@ class ScraperBot():
         input = self.driver.find_element(By.ID, id)
         input.clear()
         input.send_keys(text)
+        return input
 
     def input_name(self, name, text):
         input = self.driver.find_element(By.NAME, name)
         input.clear()
         input.send_keys(text)
-        
+        return input
+
     def reading_elem(self, xpath):
         reading = self.driver.find_element(By.XPATH, xpath).text
         return reading
 
     def click_type_button(self, type_name):
-            button = self.driver.find_element(By.XPATH, f'//button[contains(@type,"{type_name}")]')
-            button.click()
+        button = self.driver.find_element(
+            By.XPATH, f'//button[contains(@type,"{type_name}")]')
+        button.click()
 
     def click_class_button(self, class_name):
-            button = self.driver.find_element(By.XPATH, f'//button[contains(@class,"{class_name}")]')
-            button.click()
-            
-    def hit_enter(self):
-        self.driver(Keys.RETURN)
+        button = self.driver.find_element(
+            By.XPATH, f'//button[contains(@class,"{class_name}")]')
+        button.click()
+
+    def hit_enter(self, obj):
+        print('wzup im in hit enter')
+        obj.send_keys(Keys.ENTER)
+        print('after keys enter')
+        return
 
     def set_url(self, url):
         self.driver.get(url)
+        return
 
     def delete_cookies(self):
         self.driver.delete_all_cookies()
@@ -94,7 +159,7 @@ class ScraperBot():
 
 if __name__ == '__main__':
     bot = ScraperBot(url='https://wotlkdb.com')
-    bot.accept_cookies()
+    bot.accept_cookies(iframe='__tcfapiLocator')
     bot.delete_cookies()
-    sleep(10)
-    bot.driver.quit()
+    # sleep(10)
+    # bot.driver.quit()

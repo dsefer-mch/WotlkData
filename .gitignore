@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 seleniumTest1.py
+data_test.csv
 
 # C extensions
 *.so
