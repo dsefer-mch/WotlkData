@@ -1,8 +1,6 @@
-from re import I
 from tabnanny import verbose
 from selenium.webdriver import Chrome
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
@@ -55,37 +53,6 @@ class ScraperBot():
             except:
                 if verbose:
                     print('Cookies not detected.')
-
-
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-        # print('starti...')
-        # try:
-        #     print('tryin')
-        #     if iframe:
-        #         print('is it iframe?')
-        #         self.driver.switch_to.frame(iframe)
-        # except:
-        #     print('No iframe for the coockies set')
-        # try:
-        #     accept_button = self.driver.find_element(
-        #         By.LINK_TEXT, 'Accept')
-        #     print(accept_button)
-        #     if accept_button == None:
-        #         accept_button = self.driver.find_element(By.XPATH, xpath)
-        #         print('xpath',accept_button)
-        #     accept_button.click()
-        # except:
-        #     print('Cookies not detected.')
 
     def hoover_over(self, text=None, xpath=None):
         action = ActionChains(self.driver)
@@ -159,7 +126,7 @@ class ScraperBot():
 
 if __name__ == '__main__':
     bot = ScraperBot(url='https://wotlkdb.com')
-    bot.accept_cookies(iframe='__tcfapiLocator')
+    bot.accept_cookies()
     bot.delete_cookies()
     # sleep(10)
     # bot.driver.quit()

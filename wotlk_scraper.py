@@ -28,33 +28,34 @@ class Scraper(ScraperBot):
         self.item = item
         self.arm_type = arm_type
         self.list_of_items = []
+        self.list_img_couples = []
 
     def nav_to_main_page(self):
-        database = self.hoover_over(text='Database')
-        items = self.hoover_over(xpath="//span[text()='Items']")
+        self.hoover_over(text='Database')
+        self.hoover_over(xpath="//span[text()='Items']")
 
         if self.item in Scraper.weapons:
-            weapons = self.hoover_over(text='Weapons')
-            weapon = self.click_text(text=self.item)
+            self.hoover_over(text='Weapons')
+            self.click_text(text=self.item)
             try:
                 filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
                 print('FILTER ON/OFF?', filter_switch)
                 if filter_switch == 'Create a filter':
                     print('da sravnqva gi pravilno ')
-                    button = self.click_xpath(xpath='//*[@id="fi_toggle"]')
+                    self.click_xpath(xpath='//*[@id="fi_toggle"]')
             except:
                 print('Filter switch not found.')
         else:
-            armor = self.hoover_over(text='Armor')
+            self.hoover_over(text='Armor')
             if self.item in Scraper.armor_08:
-                armor_type_menu = self.hoover_over(text=self.arm_type)
-                armor_item = self.click_text(text=self.item)
+                self.hoover_over(text=self.arm_type)
+                self.click_text(text=self.item)
                 try:
                     filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
                     print('FILTER ON/OFF?', filter_switch)
                     if filter_switch == 'Create a filter':
                         print('da sravnqva gi pravilno ')
-                        button = self.click_xpath(xpath='//*[@id="fi_toggle"]')
+                        self.click_xpath(xpath='//*[@id="fi_toggle"]')
                 except:
                     print('Filter switch not found.')
 
@@ -85,15 +86,10 @@ class Scraper(ScraperBot):
         [list_of_real_items.append(element) for element in all_items_list_as_a_list if element[0]
          == 'item' if element not in list_of_real_items]
         self.list_of_items += list_of_real_items
-        print(list_of_real_items)
-        print(self.list_of_items)
 
     def scrape_the_items(self):
-        print('here we start scraping items')
         df = pd.DataFrame({})
-        print('here we start scraping items2')
         for i in self.list_of_items:
-            print('here we start scraping items3')
             # if verbose == True:
             #     print('this is just the element i :', i)
             item_url = "https://wotlkdb.com/?item=" + i[1]
@@ -102,29 +98,22 @@ class Scraper(ScraperBot):
             self.driver.implicitly_wait(10)
             scraped_data = self.driver.find_element(
                 By.XPATH, "(//TD)[4]/../../../..").text
-            libr = {
-                'Item': scraped_data
-            }
-            df = df.append(libr, ignore_index=True)
-            print(df)
-        df.to_csv('data_test.csv')
-        print(df)
+            self.scrape_image_elements(data=scraped_data)
+        #     libr = {
+        #         'Item': scraped_data
+        #     }
+        #     df = df.append(libr, ignore_index=True)
+        # df.to_csv('data_test.csv')
 
-    def scrape_image(self):
-        try:
-            address_str = re.findall(r'(\w+)=(\w+)', self.driver.page_source)
-            address_str_list = [list(element_in_address_str) for element_in_address_str in address_str]
-            address_filter_list = []
-            [address_filter_list.append(element) for element in address_str_list if element[0]=='style' if 'background-image' in element[1]]
-            link_list = []
-            if address_filter_list:
-                for element in address_filter_list:
-                    link = element[1].split('"')[-1]
-        except:
-            print('No image link found')
-        
-
-
+    def scrape_image_elements(self, data):
+        img_src_url_elements = re.findall(r"(\w+)/(\w+[.]+\bjpg)", self.driver.page_source)
+        img_src_url_element = [ element[1] for element in img_src_url_elements if element[0]=='large']
+        img_elem_str = img_src_url_element[0]
+        item_name_list = data.split('\n')
+        item_name = item_name_list[0]
+        image_couple = [item_name, img_elem_str]
+        self.list_img_couples.append(image_couple)
+        print(self.list_img_couples)
 
 
 if __name__ == '__main__':
@@ -140,7 +129,7 @@ if __name__ == '__main__':
     scrape_test1.accept_cookies(xpath='//*[@class="ncmp__btn"]')
     scrape_test1.nav_to_main_page()
     scrape_test1.use_web_filter()
-    # scrape_test1.scrape_item_nums()
     scrape_test1.scrape_the_items()
+
     scrape_test1.delete_cookies()
     scrape_test1.driver.quit()
