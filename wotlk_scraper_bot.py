@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 import requests
+import os
 from time import sleep
 
 
@@ -21,10 +22,10 @@ class ScraperBot():
             self.driver = Chrome(ChromeDriverManager().install())
         self.driver.get(self.url)
         self.driver.maximize_window()
-        self.driver.implicitly_wait(10)
+        self.driver.implicitly_wait(2)
 
     def accept_cookies(self, xpath=None, iframe=None):
-        sleep(5)
+        sleep(1)
         accept_button = None
         if iframe:
             try:
@@ -57,9 +58,7 @@ class ScraperBot():
     def hoover_over(self, text=None, xpath=None):
         action = ActionChains(self.driver)
         if text:
-            print(text)
             text_obj = self.driver.find_element(By.LINK_TEXT, text)
-            print(text_obj)
             action.move_to_element(text_obj)
             action.perform()
         if xpath:
@@ -71,8 +70,6 @@ class ScraperBot():
         self.driver.find_element(By.LINK_TEXT, text).click()
 
     def click_xpath(self, xpath):
-        print(xpath)
-        print(self)
         self.driver.find_element(By.XPATH, xpath).click()
 
     def click_href(self, href):
@@ -105,18 +102,37 @@ class ScraperBot():
         button.click()
 
     def hit_enter(self, obj):
-        print('wzup im in hit enter')
         obj.send_keys(Keys.ENTER)
-        print('after keys enter')
         return
 
     def set_url(self, url):
         self.driver.get(url)
+        self.driver.maximize_window()
         return
 
     def delete_cookies(self):
         self.driver.delete_all_cookies()
         print('does it cleans it?')
+
+    def create_dir(self, name, parent_dir=None):
+        dir_name = name
+        if parent_dir == None:
+            curr_dir = os.path.dirname(os.path.realpath(__file__))
+            path = os.path.join(curr_dir, dir_name)
+        else:
+            path = os.path.join(parent_dir, dir_name)
+        try: 
+            os.mkdir(path)
+            print("Directory '% s' created" % dir_name) 
+        except OSError as error: 
+            print(error) 
+        return path
+
+    def create_dir_drop_file(self, full_path, data):
+        f_name = full_path
+        os.makedirs(os.path.dirname(f_name), exist_ok=True)
+        with open(f_name, "w") as f:
+            f.write(data)
 
     def download_file(self, sorce_url, loc_repo):
         response = requests.get(sorce_url)
