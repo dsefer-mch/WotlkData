@@ -1,58 +1,52 @@
-from tabnanny import verbose
-from selenium.webdriver import Chrome
+from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 import requests
 import os
-from time import sleep
-
 
 class ScraperBot():
+    def __init__(self, headless=False, verbose=False):
 
-    def __init__(self, url='https://wotlkdb.com', options=None):
-        print(self)
-
-        self.url = url
-        if options:
-            self.driver = Chrome(
-                ChromeDriverManager().install(), options=options)
-        else:
-            self.driver = Chrome(ChromeDriverManager().install())
-        self.driver.get(self.url)
+        options = Options()
+        if headless:
+            options.add_argument("--headless")
+        options.add_argument("--no-sandbox")	
+        self.driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
         self.driver.maximize_window()
-        self.driver.implicitly_wait(2)
-
+        self.verbose = verbose
+    
     def accept_cookies(self, xpath=None, iframe=None):
-        sleep(1)
         accept_button = None
         if iframe:
             try:
                 self.driver.switch_to.frame(iframe)
             except:
-                if verbose:
+                if self.verbose:
                     print('Unable to switch to selected iframe')
         if xpath:
             try:
                 accept_button = self.driver.find_element(By.XPATH, xpath)
             except:
-                if verbose:
+                if self.verbose:
                     print('Xpath object not found')
         if not accept_button:
             print('accept but', accept_button)
             try:
                 print('im trying accept button')
-                accept_button = self.driver.find_element(By.LINK_TEXT, 'Accept')
+                accept_button = self.driver.find_element(
+                    By.LINK_TEXT, 'Accept')
             except:
-                if verbose:
+                if self.verbose:
                     print('"Accept" button not found')
         print(accept_button)
         if accept_button:
             try:
                 accept_button.click()
             except:
-                if verbose:
+                if self.verbose:
                     print('Cookies not detected.')
 
     def hoover_over(self, text=None, xpath=None):
@@ -106,13 +100,17 @@ class ScraperBot():
         return
 
     def set_url(self, url):
-        self.driver.get(url)
-        self.driver.maximize_window()
+        try:
+            self.driver.get(url)
+            self.driver.maximize_window()
+            if self.verbose:
+                print('Selenium opens ', url)
+        except:
+            print('No internet connection or bad url.')
         return
 
     def delete_cookies(self):
         self.driver.delete_all_cookies()
-        print('does it cleans it?')
 
     def create_dir(self, name, parent_dir=None):
         dir_name = name
@@ -121,11 +119,16 @@ class ScraperBot():
             path = os.path.join(curr_dir, dir_name)
         else:
             path = os.path.join(parent_dir, dir_name)
-        try: 
+        try:
             os.mkdir(path)
-            print("Directory '% s' created" % dir_name) 
-        except OSError as error: 
-            print(error) 
+            if self.verbose:
+                if self.verbose:
+                    print("Directory '% s' created" % dir_name)
+        except OSError as error:
+            print(error)
+            if self.verbose:
+                print(
+                    '</raw_data> directory is created at the start of scraping. Ignore this directory error massage.')
         return path
 
     def create_dir_drop_file(self, full_path, data):
@@ -142,7 +145,6 @@ class ScraperBot():
 
 if __name__ == '__main__':
     bot = ScraperBot(url='https://wotlkdb.com')
-    bot.accept_cookies()
+    bot.accept_cookies(xpath='//*[@class="ncmp__btn"]')
     bot.delete_cookies()
-    # sleep(10)
-    # bot.driver.quit()
+    bot.driver.quit()
