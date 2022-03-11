@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 seleniumTest1.py
 data_test.csv
+s3_script.py
+/raw_data
 
 # C extensions
 *.so

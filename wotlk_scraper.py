@@ -215,30 +215,30 @@ class Scraper(ScraperBot):
 
 if __name__ == '__main__':
 
-    # for item in Scraper.armor_08:                                  #    <<-- Scraping armor from armor_08 list
-    #     for armor_type in Scraper.armor_type:
-    #         scrape_test1 = Scraper(item, armor_type, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-    #         scrape_test1.nav_to_main_page()
-    #         scrape_test1.use_web_filter()
-    #         scrape_test1.scrape_the_items()
-    #         scrape_test1.images()
-    #         scrape_test1.delete_cookies()
-    #         scrape_test1.driver.quit()
+    for item in Scraper.armor_08:                                  #    <<-- Scraping armor from armor_08 list
+        for armor_type in Scraper.armor_type:
+            scrape_test1 = Scraper(item, armor_type, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+            scrape_test1.nav_to_main_page()
+            scrape_test1.use_web_filter()
+            scrape_test1.scrape_the_items()
+            scrape_test1.images()
+            scrape_test1.delete_cookies()
+            scrape_test1.driver.quit()
 
-    # for item in Scraper.armor:                                      #   <<-- Screaping armor from armor list
-    #     scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-    #     scrape_test1.nav_to_main_page()
-    #     scrape_test1.use_web_filter()
-    #     scrape_test1.scrape_the_items()
-    #     scrape_test1.images()
-    #     scrape_test1.delete_cookies()
-    #     scrape_test1.driver.quit()
+    for item in Scraper.armor:                                      #   <<-- Screaping armor from armor list
+        scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+        scrape_test1.nav_to_main_page()
+        scrape_test1.use_web_filter()
+        scrape_test1.scrape_the_items()
+        scrape_test1.images()
+        scrape_test1.delete_cookies()
+        scrape_test1.driver.quit()
 
-    # for item in Scraper.weapons:                                        #   <<-- Scraping weapons
-    #     scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-    #     scrape_test1.nav_to_main_page()
-    #     scrape_test1.use_web_filter()
-    #     scrape_test1.scrape_the_items()
-    #     scrape_test1.images()
-    #     scrape_test1.delete_cookies()
-    #     scrape_test1.driver.quit()
+    for item in Scraper.weapons:                                        #   <<-- Scraping weapons
+        scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+        scrape_test1.nav_to_main_page()
+        scrape_test1.use_web_filter()
+        scrape_test1.scrape_the_items()
+        scrape_test1.images()
+        scrape_test1.delete_cookies()
+        scrape_test1.driver.quit()
