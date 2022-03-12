@@ -1,11 +1,11 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+__pycache__
 *.py[cod]
 *$py.class
 seleniumTest1.py
 data_test.csv
 s3_script.py
-/raw_data
+src/raw_data/
 
 # C extensions
 *.so
