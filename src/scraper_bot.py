@@ -1,3 +1,4 @@
+from urllib import response
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
@@ -6,6 +7,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 import requests
 import os
+import boto3
 
 class ScraperBot():
     def __init__(self, headless=False, verbose=False):
@@ -141,6 +143,13 @@ class ScraperBot():
         response = requests.get(sorce_url)
         with open(loc_repo, 'wb+') as f:
             f.write(response.content)
+
+    def s3_up(self, file_name_or_img, bucket_name, obj_name):
+        s3_client = boto3.client('s3')
+        try:
+            response = s3_client.upload_file(file_name_or_img, bucket_name, obj_name)
+        except:
+            print('File NOT uploaded!')
 
 
 if __name__ == '__main__':

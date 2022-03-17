@@ -6,6 +6,7 @@ seleniumTest1.py
 data_test.csv
 s3_script.py
 src/raw_data/
+dist/
 
 # C extensions
 *.so

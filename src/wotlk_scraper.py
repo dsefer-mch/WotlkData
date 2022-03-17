@@ -11,6 +11,7 @@ import requests
 import io
 from PIL import Image
 import datetime
+import boto3
 
 
 class Scraper(ScraperBot):
@@ -135,6 +136,7 @@ class Scraper(ScraperBot):
             df = df.append(libr, ignore_index=True)
         df.to_json(self.dpoint_name + '/data.json')
         df.to_csv(self.dpoint_name + '/data.csv')
+        self.s3_up(file_name_or_img=(self.dpoint_name + '/data.json'), bucket_name='wotk.proj', obj_name='/raw_data/' + dp_dir_name + '/data.json')
 
     def scrape_image_elements(self, data, id):
         """
@@ -184,7 +186,7 @@ class Scraper(ScraperBot):
 
     def download_img(self, src_url, id, img_parent_dir):
         """
-        Downloading and saving images.
+        Downloading and saving images local & on s3.
         """
         try:
             image_content = requests.get(src_url).content
@@ -193,6 +195,8 @@ class Scraper(ScraperBot):
             file_path = os.path.join(img_parent_dir, str(id) + '.jpg')
             with open(file_path, 'wb') as f:
                 image.save(f, "JPEG", quality=85)
+                objname = '/raw_data/' + self.dpoint_name.split('/')[-1] + '/images/' + str(id) + '.jpg'
+                self.s3_up(file_name_or_img=file_path, bucket_name='wotk.proj', obj_name=objname)
                 if self.verbose:
                     print(f'Image {id}.jpg saved.')
         except ConnectionResetError:
@@ -214,31 +218,44 @@ class Scraper(ScraperBot):
 
 
 if __name__ == '__main__':
+    
 
-    for item in Scraper.armor_08:                                  #    <<-- Scraping armor from armor_08 list
-        for armor_type in Scraper.armor_type:
-            scrape_test1 = Scraper(item, armor_type, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    # for item in Scraper.armor_08:                                  #    <<-- Scraping armor from armor_08 list
+    #     for armor_type in Scraper.armor_type:
+    #         scrape_test1 = Scraper(item, armor_type, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #         scrape_test1.nav_to_main_page()
+    #         scrape_test1.use_web_filter()
+    #         scrape_test1.scrape_the_items()
+    #         scrape_test1.images()
+    #         scrape_test1.delete_cookies()
+    #         scrape_test1.driver.quit()
+
+    # for item in Scraper.armor:                                      #   <<-- Screaping armor from armor list
+    #     scrape_test1 = Scraper(item, verbose=True, headless=False)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #     scrape_test1.nav_to_main_page()
+    #     scrape_test1.use_web_filter()
+    #     scrape_test1.scrape_the_items()
+    #     scrape_test1.images()
+    #     scrape_test1.delete_cookies()
+    #     scrape_test1.driver.quit()
+
+    # for item in Scraper.weapons:                                        #   <<-- Scraping weapons
+    #     scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #     scrape_test1.nav_to_main_page()
+    #     scrape_test1.use_web_filter()
+    #     scrape_test1.scrape_the_items()
+    #     scrape_test1.images()
+    #     scrape_test1.delete_cookies()
+    #     scrape_test1.driver.quit()
+
+            scrape_test1 = Scraper(item='Rings', verbose=False, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
             scrape_test1.nav_to_main_page()
             scrape_test1.use_web_filter()
             scrape_test1.scrape_the_items()
             scrape_test1.images()
+            # s3 = boto3.resource('s3')                                         #  next 4 lines list all the s3 content in the Bucket(wotk.proj)
+            # my_bucket = s3.Bucket('wotk.proj')
+            # for file in my_bucket.objects.all():
+            #     print(file.key)
             scrape_test1.delete_cookies()
             scrape_test1.driver.quit()
-
-    for item in Scraper.armor:                                      #   <<-- Screaping armor from armor list
-        scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-        scrape_test1.nav_to_main_page()
-        scrape_test1.use_web_filter()
-        scrape_test1.scrape_the_items()
-        scrape_test1.images()
-        scrape_test1.delete_cookies()
-        scrape_test1.driver.quit()
-
-    for item in Scraper.weapons:                                        #   <<-- Scraping weapons
-        scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-        scrape_test1.nav_to_main_page()
-        scrape_test1.use_web_filter()
-        scrape_test1.scrape_the_items()
-        scrape_test1.images()
-        scrape_test1.delete_cookies()
-        scrape_test1.driver.quit()
