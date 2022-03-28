@@ -1,6 +1,6 @@
 import unittest
 from src.scraper_bot import ScraperBot
-from moto import mock_s3
+# from moto import mock_s3
 
 
 class ScraperBotTestCase(unittest.TestCase):

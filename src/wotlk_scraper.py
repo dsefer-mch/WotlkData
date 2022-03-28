@@ -1,3 +1,4 @@
+import imp
 from scraper_bot import ScraperBot
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -12,7 +13,8 @@ import io
 from PIL import Image
 import datetime
 import boto3
-
+import psycopg2
+import sqlalchemy
 
 class Scraper(ScraperBot):
 
@@ -78,8 +80,8 @@ class Scraper(ScraperBot):
         Define range of items (on the base - item level).
         The largest rang is 1 - 290.
         """
-        min_item_lvl = 1
-        max_item_lvl = 10  # Change it for less or more scraping 10 -290
+        min_item_lvl = 41
+        max_item_lvl = 50  # Change it for less or more scraping 10 -290
         if self.verbose:
             print('Range item level for scraper are - min:', min_item_lvl, ', max:',max_item_lvl)
             print('If you need different range ,change values inside def use_web_filter.')
@@ -137,6 +139,7 @@ class Scraper(ScraperBot):
         df.to_json(self.dpoint_name + '/data.json')
         df.to_csv(self.dpoint_name + '/data.csv')
         self.s3_up(file_name_or_img=(self.dpoint_name + '/data.json'), bucket_name='wotk.proj', obj_name='/raw_data/' + dp_dir_name + '/data.json')
+        df.to_sql(f'data_of_{self.dpoint_name}', ScraperBot.engine)   #upload to sql server
 
     def scrape_image_elements(self, data, id):
         """
@@ -182,6 +185,7 @@ class Scraper(ScraperBot):
             }
             df_img = df_img.append(lib, ignore_index=True)
         df_img.to_csv(self.dpoint_name + '/images_link_data.csv')
+        df_img.to_sql(f'link_data_of_{self.dpoint_name}', ScraperBot.engine)   #upload table to sql
         self.dpoint_name = None            # That resets datapoint id name. It's 'just in case'.
 
     def download_img(self, src_url, id, img_parent_dir):
@@ -248,7 +252,7 @@ if __name__ == '__main__':
     #     scrape_test1.delete_cookies()
     #     scrape_test1.driver.quit()
 
-            scrape_test1 = Scraper(item='Rings', verbose=False, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+            scrape_test1 = Scraper(item='Shields',credens='config/rds_credens.yaml', verbose=False, headless=False)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
             scrape_test1.nav_to_main_page()
             scrape_test1.use_web_filter()
             scrape_test1.scrape_the_items()

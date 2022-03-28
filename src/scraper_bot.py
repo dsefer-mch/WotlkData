@@ -8,9 +8,11 @@ from selenium.webdriver import ActionChains
 import requests
 import os
 import boto3
+from sqlalchemy import create_engine
+import yaml
 
 class ScraperBot():
-    def __init__(self, credens:str, headless=False, verbose=False):
+    def __init__(self,credens , headless=False, verbose=False ):
 
         options = Options()
         if headless:
@@ -20,18 +22,19 @@ class ScraperBot():
         self.driver.maximize_window()
         self.verbose = verbose
 
-        with open(credens, 'r') as f:
-            credens = yaml.safe_load(f, Loader=yaml)
-        DATABASE_TYPE = credens['DATABASE_TYPE']
-        DBAPI = credens['DBAPI']
-        HOST = credens['HOST']
-        USER = credens['USER']
-        PASSWORD = credens['PASSWORD']
-        DATABASE = credens['DATABASE']
-        PORT = credens['PORT']
+        # with open(credens, 'r') as f:
+        #     credens = yaml.safe_load(f)
+        # DATABASE_TYPE = credens['DATABASE_TYPE']
+        # DBAPI = credens['DBAPI']
+        # HOST = credens['HOST']
+        # USER = credens['USER']
+        # PASSWORD = credens['PASSWORD']
+        # DATABASE = credens['DATABASE']
+        # PORT = credens['PORT']
 
-        self.engine = create_engine(f'{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}')
-    
+        # self.engine = create_engine(f'{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}')
+        self.engine = create_engine('postgresql://postgres_wtlk_db@scrap-wtlk-db.cc7x6bcgkame.eu-west-1.rds.amazonaws.com:5432/scrap-wtlk-db')
+        # self.engine.connect()
     def accept_cookies(self, xpath=None, iframe=None):
         accept_button = None
         if iframe:
@@ -157,7 +160,7 @@ class ScraperBot():
             f.write(response.content)
 
     def s3_up(self, file_name_or_img, bucket_name, obj_name):
-        s3_client = boto3.client('s3')
+        s3_client = boto3.client('s3') #, aws_access_key_id=#aws_config_file, region_name=...,aws_secret_access_key=...)
         try:
             response = s3_client.upload_file(file_name_or_img, bucket_name, obj_name)
         except:
@@ -165,7 +168,7 @@ class ScraperBot():
 
 
 if __name__ == '__main__':
-    bot = ScraperBot(url='https://wotlkdb.com')
+    bot = ScraperBot(credens='config/rds_credens.yaml')
     bot.accept_cookies(xpath='//*[@class="ncmp__btn"]')
     bot.delete_cookies()
     bot.driver.quit()
