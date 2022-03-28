@@ -10,7 +10,7 @@ import os
 import boto3
 
 class ScraperBot():
-    def __init__(self, headless=False, verbose=False):
+    def __init__(self, credens:str, headless=False, verbose=False):
 
         options = Options()
         if headless:
@@ -19,6 +19,18 @@ class ScraperBot():
         self.driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
         self.driver.maximize_window()
         self.verbose = verbose
+
+        with open(credens, 'r') as f:
+            credens = yaml.safe_load(f, Loader=yaml)
+        DATABASE_TYPE = credens['DATABASE_TYPE']
+        DBAPI = credens['DBAPI']
+        HOST = credens['HOST']
+        USER = credens['USER']
+        PASSWORD = credens['PASSWORD']
+        DATABASE = credens['DATABASE']
+        PORT = credens['PORT']
+
+        self.engine = create_engine(f'{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}')
     
     def accept_cookies(self, xpath=None, iframe=None):
         accept_button = None
