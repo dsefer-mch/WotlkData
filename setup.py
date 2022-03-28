@@ -21,6 +21,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     package_dir={"": "src"},
-    packages=setuptools.find_packages(where="src"),
-    python_requires=">=3.6",
+    packages=setuptools.find_packages(),
+    install_requires=['selenium', 'pandas', 're', 'base64', 'uuid', 'os', 'requests',
+                      'io', 'pillow', 'boto3', 'datetime', 'urllib', 'webdriver_manager', ],
 )
