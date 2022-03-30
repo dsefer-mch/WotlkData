@@ -7,7 +7,9 @@ data_test.csv
 s3_script.py
 src/raw_data/
 dist/
-/config/rds_credens.yaml
+/config
+/src/testdummy.py
+
 # C extensions
 *.so
 

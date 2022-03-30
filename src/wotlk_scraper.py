@@ -1,5 +1,10 @@
-import imp
+from dataclasses import replace
+from pathlib import Path
+from tabnanny import verbose
 from scraper_bot import ScraperBot
+from aws_rds_client import Client
+from aws_rds_client import Query
+from aws_rds_client import Load
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,6 +21,7 @@ import boto3
 import psycopg2
 import sqlalchemy
 
+
 class Scraper(ScraperBot):
 
     """
@@ -26,7 +32,8 @@ class Scraper(ScraperBot):
 
     weapons = ['Daggers', 'Fist Weapons', 'One-Handed Axes', 'One-Handed Maces', 'One-Handed Swords', 'Polearms', 'Staves',
                'Two-Handed Axes', 'Two-Handed Maces', 'Two-Handed Swords', 'Bows', 'Crossbows', 'Guns', 'Thrown', 'Wands']
-    armor = ['Cloaks', 'Shields', 'Amulets', 'Rings', 'Trinkets', 'Idols', 'Librams', 'Totems', 'Sigils']
+    armor = ['Cloaks', 'Shields', 'Amulets', 'Rings',
+             'Trinkets', 'Idols', 'Librams', 'Totems', 'Sigils']
     armor_type = ['Cloth', 'Leather', 'Mail', 'Plate']
     armor_08 = ['Chest', 'Feet', 'Hands', 'Head',
                 'Legs', 'Shoulder', 'Wrist', 'Waist']
@@ -80,10 +87,11 @@ class Scraper(ScraperBot):
         Define range of items (on the base - item level).
         The largest rang is 1 - 290.
         """
-        min_item_lvl = 41
-        max_item_lvl = 50  # Change it for less or more scraping 10 -290
+        min_item_lvl = 1
+        max_item_lvl = 8  # Change it for less or more scraping 10 -290
         if self.verbose:
-            print('Range item level for scraper are - min:', min_item_lvl, ', max:',max_item_lvl)
+            print('Range item level for scraper are - min:',
+                  min_item_lvl, ', max:', max_item_lvl)
             print('If you need different range ,change values inside def use_web_filter.')
         step = 10
         bott_ilvl = 0
@@ -110,7 +118,11 @@ class Scraper(ScraperBot):
         """
         Scraping item data.
         """
-        self.create_dir(name='raw_data', parent_dir=os.path.dirname(os.path.realpath(__file__)))
+        cur_dir_path = os.path.dirname(os.path.realpath(__file__))
+        par_dir_path = os.path.abspath(os.path.join(cur_dir_path, os.pardir))
+        cred_path = par_dir_path + '/config/cred.json'
+        self.create_dir(name='raw_data', parent_dir=os.path.dirname(
+            os.path.realpath(__file__)))
         df = pd.DataFrame({})
         if self.item in Scraper.armor_08:
             dp_dir_name = self.item + '.' + self.arm_type + '@' + self.date_id()
@@ -123,7 +135,8 @@ class Scraper(ScraperBot):
             item_url = "https://wotlkdb.com/?item=" + i[1]
             self.set_url(item_url)
             wait = WebDriverWait(self.driver, 10)
-            wait.until(EC.presence_of_element_located((By.XPATH, "(//TD)[4]/../../../..")))
+            wait.until(EC.presence_of_element_located(
+                (By.XPATH, "(//TD)[4]/../../../..")))
             scraped_data = self.driver.find_element(
                 By.XPATH, "(//TD)[4]/../../../..").text
             id = self.list_of_items.index(i)
@@ -138,8 +151,15 @@ class Scraper(ScraperBot):
             df = df.append(libr, ignore_index=True)
         df.to_json(self.dpoint_name + '/data.json')
         df.to_csv(self.dpoint_name + '/data.csv')
-        self.s3_up(file_name_or_img=(self.dpoint_name + '/data.json'), bucket_name='wotk.proj', obj_name='/raw_data/' + dp_dir_name + '/data.json')
-        df.to_sql(f'data_of_{self.dpoint_name}', ScraperBot.engine)   #upload to sql server
+        self.s3_up(file_name_or_img=(self.dpoint_name + '/data.json'),
+                   bucket_name='wotk.proj', obj_name='/raw_data/' + dp_dir_name + '/data.json')
+        try:
+            Client.from_json(cred_path)
+            # df_img.to_sql(f'image_data_demo', self.engine, if_exists='append')
+            Load.create_and_load_pd(df, f'data_of_{dp_dir_name}')
+        except ConnectionResetError:
+            if self.verbose:
+                print('Connection Error')
 
     def scrape_image_elements(self, data, id):
         """
@@ -159,15 +179,19 @@ class Scraper(ScraperBot):
         """
         Creates images-link data and calls download function.
         """
-        df_img = pd.DataFrame({})
+        cur_dir_path = os.path.dirname(os.path.realpath(__file__))
+        par_dir_path = os.path.abspath(os.path.join(cur_dir_path, os.pardir))
+        cred_path = par_dir_path + '/config/cred.json'  # <<<<<<<<<<<REPEATABLEEEEE
         img_dir = self.create_dir(name='images', parent_dir=self.dpoint_name)
+        df_img = pd.DataFrame({})
         for couple in self.list_img_couples:
-            link = 'https://wotlkdb.com/static/images/wow/icons/large/' + \
+            link = "https://wotlkdb.com/static/images/wow/icons/large/" + \
                 couple[1]
             try:
                 self.set_url(link)
                 wait = WebDriverWait(self.driver, 10)
-                wait.until(EC.presence_of_element_located((By.TAG_NAME, "img")))
+                wait.until(EC.presence_of_element_located(
+                    (By.TAG_NAME, "img")))
             except ConnectionResetError:
                 if self.verbose:
                     print('Connection Error')
@@ -185,8 +209,28 @@ class Scraper(ScraperBot):
             }
             df_img = df_img.append(lib, ignore_index=True)
         df_img.to_csv(self.dpoint_name + '/images_link_data.csv')
-        df_img.to_sql(f'link_data_of_{self.dpoint_name}', ScraperBot.engine)   #upload table to sql
-        self.dpoint_name = None            # That resets datapoint id name. It's 'just in case'.
+        """ I need to write a query to make sure image_data existing on the cloud , if not the an empty one needts to be created just here"""
+        try:
+            Client.from_json(cred_path)
+            # df_img.to_sql(f'image_data_demo', self.engine, if_exists='append')
+            Load.create_and_load_pd(df_img, 'image_data_demo')
+        except ConnectionResetError:
+            if self.verbose:
+                print('Connection Error')
+        try:
+            df_query = Query.query(
+                'SELECT "Image source link" FROM image_data_demo d WHERE EXISTS (SELECT "Image source link" FROM image_data i WHERE d."Image source link" = i."Image source link")')
+        except ConnectionResetError:
+            if self.verbose:
+                print('Connection Error')
+        if df_query.empty:
+            # upload table to sql
+            Load.create_and_load_pd(df_img, 'image_data')
+            Load.drop('image_data_demo')
+        else:
+            Load.drop('image_data_demo')
+        # That resets datapoint id name. It's 'just in case'.
+        self.dpoint_name = None
 
     def download_img(self, src_url, id, img_parent_dir):
         """
@@ -199,8 +243,11 @@ class Scraper(ScraperBot):
             file_path = os.path.join(img_parent_dir, str(id) + '.jpg')
             with open(file_path, 'wb') as f:
                 image.save(f, "JPEG", quality=85)
-                objname = '/raw_data/' + self.dpoint_name.split('/')[-1] + '/images/' + str(id) + '.jpg'
-                self.s3_up(file_name_or_img=file_path, bucket_name='wotk.proj', obj_name=objname)
+                objname = '/raw_data/' + \
+                    self.dpoint_name.split(
+                        '/')[-1] + '/images/' + str(id) + '.jpg'
+                self.s3_up(file_name_or_img=file_path,
+                           bucket_name='wotk.proj', obj_name=objname)
                 if self.verbose:
                     print(f'Image {id}.jpg saved.')
         except ConnectionResetError:
@@ -222,7 +269,6 @@ class Scraper(ScraperBot):
 
 
 if __name__ == '__main__':
-    
 
     # for item in Scraper.armor_08:                                  #    <<-- Scraping armor from armor_08 list
     #     for armor_type in Scraper.armor_type:
@@ -252,14 +298,15 @@ if __name__ == '__main__':
     #     scrape_test1.delete_cookies()
     #     scrape_test1.driver.quit()
 
-            scrape_test1 = Scraper(item='Shields',credens='config/rds_credens.yaml', verbose=False, headless=False)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-            scrape_test1.nav_to_main_page()
-            scrape_test1.use_web_filter()
-            scrape_test1.scrape_the_items()
-            scrape_test1.images()
-            # s3 = boto3.resource('s3')                                         #  next 4 lines list all the s3 content in the Bucket(wotk.proj)
-            # my_bucket = s3.Bucket('wotk.proj')
-            # for file in my_bucket.objects.all():
-            #     print(file.key)
-            scrape_test1.delete_cookies()
-            scrape_test1.driver.quit()
+    # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    scrape_test1 = Scraper(item='Feet', arm_type='Leather', verbose=True, headless=False)
+    scrape_test1.nav_to_main_page()
+    scrape_test1.use_web_filter()
+    scrape_test1.scrape_the_items()
+    scrape_test1.images()
+    # s3 = boto3.resource('s3')                                         #  next 4 lines list all the s3 content in the Bucket(wotk.proj)
+    # my_bucket = s3.Bucket('wotk.proj')
+    # for file in my_bucket.objects.all():
+    #     print(file.key)
+    scrape_test1.delete_cookies()
+    scrape_test1.driver.quit()

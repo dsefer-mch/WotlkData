@@ -1,3 +1,4 @@
+from importlib.abc import Loader
 from urllib import response
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
@@ -9,32 +10,20 @@ import requests
 import os
 import boto3
 from sqlalchemy import create_engine
-import yaml
+
 
 class ScraperBot():
-    def __init__(self,credens , headless=False, verbose=False ):
+    def __init__(self, headless=False, verbose=False):
 
         options = Options()
         if headless:
             options.add_argument("--headless")
-        options.add_argument("--no-sandbox")	
-        self.driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
+        options.add_argument("--no-sandbox")
+        self.driver = webdriver.Chrome(
+            ChromeDriverManager().install(), chrome_options=options)
         self.driver.maximize_window()
         self.verbose = verbose
 
-        # with open(credens, 'r') as f:
-        #     credens = yaml.safe_load(f)
-        # DATABASE_TYPE = credens['DATABASE_TYPE']
-        # DBAPI = credens['DBAPI']
-        # HOST = credens['HOST']
-        # USER = credens['USER']
-        # PASSWORD = credens['PASSWORD']
-        # DATABASE = credens['DATABASE']
-        # PORT = credens['PORT']
-
-        # self.engine = create_engine(f'{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}')
-        self.engine = create_engine('postgresql://postgres_wtlk_db@scrap-wtlk-db.cc7x6bcgkame.eu-west-1.rds.amazonaws.com:5432/scrap-wtlk-db')
-        # self.engine.connect()
     def accept_cookies(self, xpath=None, iframe=None):
         accept_button = None
         if iframe:
@@ -154,21 +143,19 @@ class ScraperBot():
         with open(f_name, "w") as f:
             f.write(data)
 
-    def download_file(self, sorce_url, loc_repo):
-        response = requests.get(sorce_url)
-        with open(loc_repo, 'wb+') as f:
-            f.write(response.content)
-
     def s3_up(self, file_name_or_img, bucket_name, obj_name):
-        s3_client = boto3.client('s3') #, aws_access_key_id=#aws_config_file, region_name=...,aws_secret_access_key=...)
+        # , aws_access_key_id=#aws_config_file, region_name=...,aws_secret_access_key=...)
+        s3_client = boto3.client('s3')
         try:
-            response = s3_client.upload_file(file_name_or_img, bucket_name, obj_name)
+            response = s3_client.upload_file(
+                file_name_or_img, bucket_name, obj_name)
+            print('Image uploaded to s3')
         except:
             print('File NOT uploaded!')
 
 
 if __name__ == '__main__':
-    bot = ScraperBot(credens='config/rds_credens.yaml')
+    bot = ScraperBot()
     bot.accept_cookies(xpath='//*[@class="ncmp__btn"]')
     bot.delete_cookies()
     bot.driver.quit()
