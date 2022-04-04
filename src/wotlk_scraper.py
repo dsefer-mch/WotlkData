@@ -1,9 +1,7 @@
-from dataclasses import replace
-from pathlib import Path
-from tabnanny import verbose
 from scraper_bot import ScraperBot
 from aws_rds_client import Client
 from aws_rds_client import Query
+from aws_rds_client import Meta
 from aws_rds_client import Load
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -17,9 +15,6 @@ import requests
 import io
 from PIL import Image
 import datetime
-import boto3
-import psycopg2
-import sqlalchemy
 
 
 class Scraper(ScraperBot):
@@ -31,25 +26,48 @@ class Scraper(ScraperBot):
     """
 
     weapons = ['Daggers', 'Fist Weapons', 'One-Handed Axes', 'One-Handed Maces', 'One-Handed Swords', 'Polearms', 'Staves',
-               'Two-Handed Axes', 'Two-Handed Maces', 'Two-Handed Swords', 'Bows', 'Crossbows', 'Guns', 'Thrown', 'Wands']
+               'Two-Handed Axes', 'Two-Handed Maces', 'Two-Handed Swords', 'Bows', 'Crossbows', 'Guns', 'Thrown', 'Wands']  # These are item names
     armor = ['Cloaks', 'Shields', 'Amulets', 'Rings',
-             'Trinkets', 'Idols', 'Librams', 'Totems', 'Sigils']
-    armor_type = ['Cloth', 'Leather', 'Mail', 'Plate']
+             'Trinkets', 'Idols', 'Librams', 'Totems', 'Sigils']  # These are item names
     armor_08 = ['Chest', 'Feet', 'Hands', 'Head',
-                'Legs', 'Shoulder', 'Wrist', 'Waist']
+                'Legs', 'Shoulder', 'Wrist', 'Waist']  # These are item names
+    armor_type = ['Cloth', 'Leather', 'Mail',
+                  'Plate']  # These are NOT item names
 
     def __init__(self, item, arm_type='Plate', **kwds):
         super().__init__(**kwds)
 
         self.item = item
         self.arm_type = arm_type
-        self.list_of_items = []
-        self.list_img_couples = []
+        self.list_couples = []
         self.dpoint_name = None
+        self.img_dir = None
+        self.dp_dir_name = None
+        self.df = pd.DataFrame({})
+        self.df_img = pd.DataFrame({})
+
+        # Declare directory & cradential paths
+        self.curr_dir_path = os.path.dirname(os.path.realpath(__file__))
+        self.par_dir_path = os.path.abspath(
+            os.path.join(self.curr_dir_path, os.pardir))
+        self.cred_path = self.par_dir_path + '/config/cred.json'
+
+    def local_config(self):
+        if os.path.isdir(self.curr_dir_path + '/raw_data') == False:
+            self.create_dir(name='raw_data', dir_path=self.curr_dir_path)
+        if self.item in Scraper.armor_08:
+            self.dp_dir_name = self.item + '.' + self.arm_type + '@' + self.date_id()
+        else:
+            self.dp_dir_name = self.item + '@' + self.date_id()
+        self.dpoint_name = self.create_dir(
+            name=self.dp_dir_name, dir_path=self.curr_dir_path + '/raw_data')
+        self.img_dir = self.create_dir(
+            name='images', dir_path=self.dpoint_name)
+        print(self.img_dir, 'self.img.dir')
 
     def nav_to_main_page(self):
         """
-        Navigate to desired item category page and turn on the filter.
+        Navigate to desired item category page and set the filter.
         """
         self.set_url('https://wotlkdb.com/')
         wait = WebDriverWait(self.driver, 10)
@@ -61,38 +79,34 @@ class Scraper(ScraperBot):
         if self.item in Scraper.weapons:
             self.hoover_over(text='Weapons')
             self.click_text(text=self.item)
-            try:
-                filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
-                if filter_switch == 'Create a filter':
-                    self.click_xpath(xpath='//*[@id="fi_toggle"]')
-            except:
-                if self.verbose:
-                    print('Filter has been On, or button is unavailable.')
-        else:
+            filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
+            if filter_switch == 'Create a filter':
+                self.click_xpath(xpath='//*[@id="fi_toggle"]')
+        elif self.item in Scraper.armor_08:
             self.hoover_over(text='Armor')
             if self.item in Scraper.armor_08:
                 self.hoover_over(text=self.arm_type)
             self.click_text(text=self.item)
-            try:
-                filter_switch = self.reading_elem(
-                    xpath='//*[@id="fi_toggle"]')
-                if filter_switch == 'Create a filter':
-                    self.click_xpath(xpath='//*[@id="fi_toggle"]')
-            except:
-                if self.verbose:
-                    print('Filter has been On, or button is unavailable.')
+            filter_switch = self.reading_elem(
+                xpath='//*[@id="fi_toggle"]')
+            if filter_switch == 'Create a filter':
+                self.click_xpath(xpath='//*[@id="fi_toggle"]')
+        else:
+            print("Please correct item argument.")
+            self.shut()
 
     def use_web_filter(self):
         """
-        Define range of items (on the base - item level).
+        Define ranges of items (on the base of >item level< stat).
         The largest rang is 1 - 290.
         """
         min_item_lvl = 1
-        max_item_lvl = 8  # Change it for less or more scraping 10 -290
+        max_item_lvl = 190  # Change it for less or more scraping 10 -290
         if self.verbose:
-            print('Range item level for scraper are - min:',
+            print('Range of >item level< stat are set to - min:',
                   min_item_lvl, ', max:', max_item_lvl)
-            print('If you need different range ,change values inside def use_web_filter.')
+            print(
+                'If you need different range, please change values inside >> def use_web_filter.')
         step = 10
         bott_ilvl = 0
         top_ilvl = 9
@@ -100,158 +114,127 @@ class Scraper(ScraperBot):
             self.input_name('minle', ilvl_set[0])
             max_lvl = self.input_name('maxle', ilvl_set[1])
             self.hit_enter(max_lvl)
-            self.scrape_item_nums()
+            self.parsing_data()
 
-    def scrape_item_nums(self):
+    def parsing_data(self):
         """
-        Scraping unique web number for each item on the page.
+        Scraping unique web-number for each item on the page.
         """
-        all_items_list = re.findall(r'(\w+)=(\d+)', self.driver.page_source)
-        all_items_list_as_a_list = [
-            list(element_in_the_item_list) for element_in_the_item_list in all_items_list]
-        list_of_real_items = []
-        [list_of_real_items.append(element) for element in all_items_list_as_a_list if element[0]
-         == 'item' if element not in list_of_real_items]
-        self.list_of_items += list_of_real_items
+        elementSource = self.driver.find_elements(By.CLASS_NAME, 'iconmedium')
+        for elements in elementSource:
+            text_to_clear = str(elements.get_attribute("innerHTML"))
+            img_url1 = text_to_clear.split(';')
+            final_url = img_url1[1].split('&')
+            FINAL_URL = re.sub("medium", "large", final_url[0])
+            item_num1 = re.findall(r"(\d+)", img_url1[3])
+            item_num = item_num1[0]
+            couple = [item_num, FINAL_URL]
+            self.list_couples.append(couple)
 
-    def scrape_the_items(self):
+    def scrape_items(self):
         """
         Scraping item data.
         """
-        cur_dir_path = os.path.dirname(os.path.realpath(__file__))
-        par_dir_path = os.path.abspath(os.path.join(cur_dir_path, os.pardir))
-        cred_path = par_dir_path + '/config/cred.json'
-        self.create_dir(name='raw_data', parent_dir=os.path.dirname(
-            os.path.realpath(__file__)))
-        df = pd.DataFrame({})
-        if self.item in Scraper.armor_08:
-            dp_dir_name = self.item + '.' + self.arm_type + '@' + self.date_id()
-        else:
-            dp_dir_name = self.item + '@' + self.date_id()
-        dpoint_name = self.create_dir(
-            name=dp_dir_name, parent_dir=os.path.dirname(os.path.realpath(__file__)) + '/raw_data')
-        self.dpoint_name = dpoint_name
-        for i in self.list_of_items:
-            item_url = "https://wotlkdb.com/?item=" + i[1]
-            self.set_url(item_url)
-            wait = WebDriverWait(self.driver, 10)
-            wait.until(EC.presence_of_element_located(
-                (By.XPATH, "(//TD)[4]/../../../..")))
-            scraped_data = self.driver.find_element(
-                By.XPATH, "(//TD)[4]/../../../..").text
-            id = self.list_of_items.index(i)
-            uuid = self.get_uuid()
-            self.scrape_image_elements(data=scraped_data, id=id)
-            libr = {
-                'ID': id,
-                'UUID': uuid,
-                'Web Item Number': i[1],
-                'Item': scraped_data
-            }
-            df = df.append(libr, ignore_index=True)
-        df.to_json(self.dpoint_name + '/data.json')
-        df.to_csv(self.dpoint_name + '/data.csv')
-        self.s3_up(file_name_or_img=(self.dpoint_name + '/data.json'),
-                   bucket_name='wotk.proj', obj_name='/raw_data/' + dp_dir_name + '/data.json')
-        try:
-            Client.from_json(cred_path)
-            # df_img.to_sql(f'image_data_demo', self.engine, if_exists='append')
-            Load.create_and_load_pd(df, f'data_of_{dp_dir_name}')
-        except ConnectionResetError:
-            if self.verbose:
-                print('Connection Error')
 
-    def scrape_image_elements(self, data, id):
-        """
-        Scraping elements with info about image location.
-        """
-        img_src_url_elements = re.findall(
-            r"(\w+)/(\w+[.]+\bjpg)", self.driver.page_source)
-        img_src_url_element = [
-            element[1] for element in img_src_url_elements if element[0] == 'large']
-        img_elem_str = img_src_url_element[0]
-        item_name_list = data.split('\n')
-        item_name = item_name_list[0]
-        image_couple = [item_name, img_elem_str, id]
-        self.list_img_couples.append(image_couple)
+        if len(self.list_couples) != 0:
+            for couple in self.list_couples:
+                id0 = self.list_couples.index(couple)
+                id = id0 + 1
+                uuid = self.get_uuid()
 
-    def images(self):
-        """
-        Creates images-link data and calls download function.
-        """
-        cur_dir_path = os.path.dirname(os.path.realpath(__file__))
-        par_dir_path = os.path.abspath(os.path.join(cur_dir_path, os.pardir))
-        cred_path = par_dir_path + '/config/cred.json'  # <<<<<<<<<<<REPEATABLEEEEE
-        img_dir = self.create_dir(name='images', parent_dir=self.dpoint_name)
-        df_img = pd.DataFrame({})
-        for couple in self.list_img_couples:
-            link = "https://wotlkdb.com/static/images/wow/icons/large/" + \
-                couple[1]
-            try:
-                self.set_url(link)
+                item_url = "https://wotlkdb.com/?item=" + couple[0]
+                self.set_url(item_url)
                 wait = WebDriverWait(self.driver, 10)
                 wait.until(EC.presence_of_element_located(
-                    (By.TAG_NAME, "img")))
-            except ConnectionResetError:
-                if self.verbose:
-                    print('Connection Error')
-            try:
-                img_src = self.driver.find_element(
-                    By.XPATH, '/html/body/img').get_attribute('src')
-            except:
-                if self.verbose:
-                    print('Source not found')
-            self.download_img(img_src, id=couple[2], img_parent_dir=img_dir)
-            lib = {
-                'id': couple[2],
-                'Item Name': couple[0],
-                'Image source link': link
-            }
-            df_img = df_img.append(lib, ignore_index=True)
-        df_img.to_csv(self.dpoint_name + '/images_link_data.csv')
-        """ I need to write a query to make sure image_data existing on the cloud , if not the an empty one needts to be created just here"""
-        try:
-            Client.from_json(cred_path)
-            # df_img.to_sql(f'image_data_demo', self.engine, if_exists='append')
-            Load.create_and_load_pd(df_img, 'image_data_demo')
-        except ConnectionResetError:
-            if self.verbose:
-                print('Connection Error')
-        try:
+                    (By.XPATH, "(//TD)[4]/../../../..")))
+                scraped_data = self.driver.find_element(
+                    By.XPATH, "(//TD)[4]/../../../..").text
+
+                data_lib = {
+                    'ID': id,
+                    'UUID': uuid,
+                    'Web Item Number': couple[0],
+                    'Item Info': scraped_data
+                }
+                self.df = self.df.append(data_lib, ignore_index=True)
+
+                url_lib = {
+                    'Web Item Number': couple[0],
+                    'Image source link': item_url
+                }
+                self.df_img = self.df_img.append(url_lib, ignore_index=True)
+                self.download_img(src_url=couple[1], id=id)
+
+            self.driver.quit()
+
+        else:
+            print("There are no items to scrape with this web-filter.")
+            self.shut()
+
+    def data_procesing(self):
+
+        image_data_table = "image_data"
+
+        # saving data localy
+        self.df.to_json(self.dpoint_name + '/data.json')
+        self.df.to_csv(self.dpoint_name + '/data.csv')
+        self.df_img.to_csv(self.dpoint_name + '/images_link_data.csv')
+
+        # uploading data to AWS RDS
+        Client.from_json(self.cred_path)
+        Load.create_and_load_pd(self.df, f'data_of_{self.dp_dir_name}')
+        res = Meta.checkTableExists(self.cred_path, tablename=image_data_table)
+        if res:
+            Load.create_and_load_pd(self.df_img, 'image_data_demo')
+            # scalability check
             df_query = Query.query(
-                'SELECT "Image source link" FROM image_data_demo d WHERE EXISTS (SELECT "Image source link" FROM image_data i WHERE d."Image source link" = i."Image source link")')
-        except ConnectionResetError:
-            if self.verbose:
-                print('Connection Error')
-        if df_query.empty:
-            # upload table to sql
-            Load.create_and_load_pd(df_img, 'image_data')
+                'SELECT * FROM image_data id JOIN image_data_demo d ON id."Web Item Number" = d."Web Item Number"')
+            if df_query.empty:
+                appending_image_data_table_query = Query.query(
+                'INSERT INTO "image_data" ("Web Item Number", "Image source link") SELECT "Web Item Number", "Image source link" FROM "image_data_demo"')
+            else:
+                unique_img_table_query = Query.query(
+                'SELECT * FROM image_data UNION SELECT * FROM image_data_demo')
+                Load.create_and_load_pd(unique_img_table_query, 'image_data1')
+                Load.drop('image_data')
+                new_data_df = Query.fetchall('image_data1')
+                Load.create_and_load_pd(new_data_df, 'image_data')
+                Load.drop('image_data1')
             Load.drop('image_data_demo')
         else:
-            Load.drop('image_data_demo')
-        # That resets datapoint id name. It's 'just in case'.
-        self.dpoint_name = None
+            Load.create_and_load_pd(self.df_img, image_data_table)
 
-    def download_img(self, src_url, id, img_parent_dir):
+        #uploading data to AWS s3
+        self.s3_up(file_or_img_name=(self.dpoint_name + '/data.json'),
+                   bucket_name='wotk.proj', obj_name='/raw_data/' + self.dp_dir_name + '/data.json')
+
+        # uploading image to AWS s3
+        list_of_img_files = os.listdir(self.img_dir)
+        for file in list_of_img_files:
+            img_name = self.img_dir + '/' + file
+            s3_path = '/raw_data/' + self.dp_dir_name + '/image/' + file
+            self.s3_up(file_or_img_name=img_name,
+                       bucket_name='wotk.proj', obj_name=s3_path)
+
+    def download_img(self, src_url, id):
         """
         Downloading and saving images local & on s3.
         """
         try:
-            image_content = requests.get(src_url).content
-            image_file = io.BytesIO(image_content)
-            image = Image.open(image_file).convert('RGB')
-            file_path = os.path.join(img_parent_dir, str(id) + '.jpg')
-            with open(file_path, 'wb') as f:
-                image.save(f, "JPEG", quality=85)
-                objname = '/raw_data/' + \
-                    self.dpoint_name.split(
-                        '/')[-1] + '/images/' + str(id) + '.jpg'
-                self.s3_up(file_name_or_img=file_path,
-                           bucket_name='wotk.proj', obj_name=objname)
-                if self.verbose:
-                    print(f'Image {id}.jpg saved.')
-        except ConnectionResetError:
-            print('Connection Error')
+            r = requests.get(src_url).content
+        except requests.exceptions.HTTPError:
+            print("HttpError found while request to: ", src_url)
+        except requests.exceptions.ConnectionError:
+            print("ConnectionError found while request to: ", src_url)
+        except requests.exceptions.Timeout:
+            print("Timeout exception for: ", src_url)
+        except requests.exceptions.RequestException:
+            print("Refused request to ", src_url)
+        bit_image = io.BytesIO(r)
+        image = Image.open(bit_image)  # .convert('RGB')
+        image_file_name = os.path.join(self.img_dir, str(id) + '.jpg')
+        with open(image_file_name, 'wb') as f:
+            image.save(f, "JPEG", quality=85)
 
     def get_uuid(self):
         """
@@ -273,40 +256,33 @@ if __name__ == '__main__':
     # for item in Scraper.armor_08:                                  #    <<-- Scraping armor from armor_08 list
     #     for armor_type in Scraper.armor_type:
     #         scrape_test1 = Scraper(item, armor_type, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #         scrape_test1.local_config()
     #         scrape_test1.nav_to_main_page()
     #         scrape_test1.use_web_filter()
-    #         scrape_test1.scrape_the_items()
+    #         scrape_test1.scrape_items()
     #         scrape_test1.images()
-    #         scrape_test1.delete_cookies()
-    #         scrape_test1.driver.quit()
 
     # for item in Scraper.armor:                                      #   <<-- Screaping armor from armor list
     #     scrape_test1 = Scraper(item, verbose=True, headless=False)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #     scrape_test1.local_config()
     #     scrape_test1.nav_to_main_page()
     #     scrape_test1.use_web_filter()
-    #     scrape_test1.scrape_the_items()
+    #     scrape_test1.scrape_items()
     #     scrape_test1.images()
-    #     scrape_test1.delete_cookies()
-    #     scrape_test1.driver.quit()
 
     # for item in Scraper.weapons:                                        #   <<-- Scraping weapons
     #     scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #     scrape_test1.local_config()
     #     scrape_test1.nav_to_main_page()
     #     scrape_test1.use_web_filter()
-    #     scrape_test1.scrape_the_items()
+    #     scrape_test1.scrape_items()
     #     scrape_test1.images()
-    #     scrape_test1.delete_cookies()
-    #     scrape_test1.driver.quit()
 
-    # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-    scrape_test1 = Scraper(item='Feet', arm_type='Leather', verbose=True, headless=False)
+    # -- HERE add headless=True for Ec2 , opt verbose.
+    scrape_test1 = Scraper(item='Polearms',
+                           verbose=True, headless=True)
+    scrape_test1.local_config()
     scrape_test1.nav_to_main_page()
     scrape_test1.use_web_filter()
-    scrape_test1.scrape_the_items()
-    scrape_test1.images()
-    # s3 = boto3.resource('s3')                                         #  next 4 lines list all the s3 content in the Bucket(wotk.proj)
-    # my_bucket = s3.Bucket('wotk.proj')
-    # for file in my_bucket.objects.all():
-    #     print(file.key)
-    scrape_test1.delete_cookies()
-    scrape_test1.driver.quit()
+    scrape_test1.scrape_items()
+    scrape_test1.data_procesing()

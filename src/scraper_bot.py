@@ -1,15 +1,15 @@
-from importlib.abc import Loader
-from urllib import response
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import TimeoutException
+from selenium.common import exceptions as ex
+from urllib3.exceptions import MaxRetryError, NewConnectionError
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
-import requests
+import sys
 import os
 import boto3
-from sqlalchemy import create_engine
 
 
 class ScraperBot():
@@ -29,129 +29,149 @@ class ScraperBot():
         if iframe:
             try:
                 self.driver.switch_to.frame(iframe)
-            except:
-                if self.verbose:
-                    print('Unable to switch to selected iframe')
-        if xpath:
+            except ex.NoSuchFrameException(msg="Frame target doesn't exist."):
+                print(
+                    "Web-page may be changed.Try another way to get the cookie's button")
+        elif xpath:
             try:
                 accept_button = self.driver.find_element(By.XPATH, xpath)
-            except:
-                if self.verbose:
-                    print('Xpath object not found')
+            except ex.NoSuchElementException(msg="Cookie's xpath button not found."):
+                print(
+                    "Web-page may be changed.Try another way to get the cookie's button")
         if not accept_button:
-            print('accept but', accept_button)
             try:
-                print('im trying accept button')
                 accept_button = self.driver.find_element(
                     By.LINK_TEXT, 'Accept')
-            except:
-                if self.verbose:
-                    print('"Accept" button not found')
-        print(accept_button)
-        if accept_button:
+            except ex.NoSuchElementException(msg="Accept button to accept cookies not found."):
+                print(
+                    "Web-page may be changed.Try another way to get the cookie's button")
+                print('Cookies not detected.')
+        elif accept_button:
             try:
                 accept_button.click()
-            except:
-                if self.verbose:
-                    print('Cookies not detected.')
+            except Exception as e:
+                print("For some reason cookie's button is unclickable", e)
 
     def hoover_over(self, text=None, xpath=None):
         action = ActionChains(self.driver)
         if text:
-            text_obj = self.driver.find_element(By.LINK_TEXT, text)
-            action.move_to_element(text_obj)
-            action.perform()
+            try:
+                obj = self.driver.find_element(By.LINK_TEXT, text)
+            except ex.NoSuchElementException:
+                print('Element not found @ <hoover_over> by text.')
+                self.shut()
+
         if xpath:
-            xpath_obj = self.driver.find_element(By.XPATH, xpath)
-            action.move_to_element(xpath_obj)
-            action.perform()
+            try:
+                obj = self.driver.find_element(By.XPATH, xpath)
+            except ex.NoSuchElementException:
+                print('Element not found @ <hoover_over> by xpath.')
+                # self.shut()
+        action.move_to_element(obj)
+        action.perform()
 
     def click_text(self, text):
-        self.driver.find_element(By.LINK_TEXT, text).click()
+        try:
+            self.driver.find_element(By.LINK_TEXT, text).click()
+        except ex.NoSuchElementException(msg="Element <LINK_TEXT> to click not found.") as e:
+            print(e)
+        except ex.ElementClickInterceptedException(msg="Element Click command could not be completed because the element receiving the events is obscuring the element that was requested to be clicked"):
+            self.shut()
 
     def click_xpath(self, xpath):
-        self.driver.find_element(By.XPATH, xpath).click()
+        try:
+            self.driver.find_element(By.XPATH, xpath).click()
+        except ex.NoSuchElementException(msg="Element <XPATH> to click not found.") as e:
+            print(e)
+        except ex.ElementClickInterceptedException(msg="Element Click command could not be completed because the element receiving the events is obscuring the element that was requested to be clicked"):
+            self.shut()
 
-    def click_href(self, href):
-        self.driver.find_element(By.LINK_TEXT, href).click()
-
-    def input_id(self, id, text):
-        input = self.driver.find_element(By.ID, id)
-        input.clear()
+    def input_id(self, id, text):  # wotlk scraper doesn't use this one
+        try:
+            input = self.driver.find_element(By.ID, id)
+        except ex.NoSuchElementException(msg="Element not found @ imput_id func."):
+            print("Look for changes in the HTML.")
+        try:
+            input.clear()
+        except ex.InvalidElementStateException(msg="command could not be completed <clear()> , because the element is in an invalid state."):
+            print(
+                "The field selenium is trying to clear isn't both editable and resettable")
         input.send_keys(text)
         return input
 
     def input_name(self, name, text):
-        input = self.driver.find_element(By.NAME, name)
-        input.clear()
+        try:
+            input = self.driver.find_element(By.NAME, name)
+        except ex.NoSuchElementException(msg="Element not found @ imput_name func."):
+            print("Look for changes in the HTML.")
+        try:
+            input.clear()
+        except ex.InvalidElementStateException(msg="command could not be completed <clear()> , because the element is in an invalid state."):
+            print(
+                "The field selenium is trying to clear isn't both editable and resettable")
         input.send_keys(text)
         return input
 
     def reading_elem(self, xpath):
-        reading = self.driver.find_element(By.XPATH, xpath).text
+        try:
+            reading = self.driver.find_element(By.XPATH, xpath).text
+        except ex.NoSuchElementException(msg="Element not found @ reading_elem by xpath"):
+            if self.verbose:
+                print('Possible reason - web-page content change.Check xpath.')
         return reading
 
-    def click_type_button(self, type_name):
-        button = self.driver.find_element(
-            By.XPATH, f'//button[contains(@type,"{type_name}")]')
-        button.click()
-
-    def click_class_button(self, class_name):
-        button = self.driver.find_element(
-            By.XPATH, f'//button[contains(@class,"{class_name}")]')
-        button.click()
-
     def hit_enter(self, obj):
-        obj.send_keys(Keys.ENTER)
+        try:
+            obj.send_keys(Keys.ENTER)
+        except AttributeError as e:
+            print('Check obj @ hit_enter func', e)
         return
 
     def set_url(self, url):
         try:
             self.driver.get(url)
-            self.driver.maximize_window()
-            if self.verbose:
-                print('Selenium opens ', url)
-        except:
-            print('No internet connection or bad url.')
-        return
+        except TimeoutException:
+            print("TimeoutException")
+        except (ConnectionRefusedError, MaxRetryError, NewConnectionError):
+            # MaxRetryError and NewConnectionError come from urllib3.exceptions
+            # ConnectionRefusedError is a Python builtin.
+            print("Connection error")
+        except Exception:
+            print("Unexpected exception in driver.get().")
+        if self.verbose:
+            print('Selenium opens ', url)
 
-    def delete_cookies(self):
-        self.driver.delete_all_cookies()
-
-    def create_dir(self, name, parent_dir=None):
+    def create_dir(self, name, dir_path=None):
         dir_name = name
-        if parent_dir == None:
-            curr_dir = os.path.dirname(os.path.realpath(__file__))
-            path = os.path.join(curr_dir, dir_name)
+        if dir_path == None:
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            path = os.path.join(dir_path, dir_name)
         else:
-            path = os.path.join(parent_dir, dir_name)
+            path = os.path.join(dir_path, dir_name)
         try:
             os.mkdir(path)
             if self.verbose:
                 if self.verbose:
                     print("Directory '% s' created" % dir_name)
-        except OSError as error:
-            print(error)
+        except OSError:
             if self.verbose:
                 print(
-                    '</raw_data> directory is created at the start of scraping. Ignore this directory error massage.')
+                    'Existing directory:', dir_name)
         return path
 
-    def create_dir_drop_file(self, full_path, data):
-        f_name = full_path
-        os.makedirs(os.path.dirname(f_name), exist_ok=True)
-        with open(f_name, "w") as f:
-            f.write(data)
-
-    def s3_up(self, file_name_or_img, bucket_name, obj_name):
+    def s3_up(self, file_or_img_name, bucket_name, obj_name):
         # , aws_access_key_id=#aws_config_file, region_name=...,aws_secret_access_key=...)
         s3_client = boto3.client('s3')
         try:
             response = s3_client.upload_file(
-                file_name_or_img, bucket_name, obj_name)
+                file_or_img_name, bucket_name, obj_name)
             print('Image uploaded to s3')
         except:
-            print('File NOT uploaded!')
+            print('File (image) NOT uploaded!')
+
+    def shut(self):
+        self.driver.quit()
+        sys.exit("Session over!")
 
 
 if __name__ == '__main__':

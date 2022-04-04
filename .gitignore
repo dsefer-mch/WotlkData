@@ -9,6 +9,7 @@ src/raw_data/
 dist/
 /config
 /src/testdummy.py
+/src/wotlktst_sraper.py
 
 # C extensions
 *.so

@@ -165,3 +165,17 @@ class Meta:
         if len(result) < 1:
             result = "There are no tables in this database"
         return(result)
+
+    def checkTableExists(cls, tablename):
+        dbcur = connection.cursor()
+        dbcur.execute("""
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_name = '{0}'
+            """.format(tablename.replace('\'', '\'\'')))
+        if dbcur.fetchone()[0] == 1:
+            dbcur.close()
+            return True
+
+        dbcur.close()
+        return False
