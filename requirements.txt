@@ -1,0 +1,17 @@
+selenium
+webdriver-manager
+urllib3
+sys
+os
+boto3
+pandas
+re
+base64
+uuid
+requests
+io
+pillow
+datetime
+json
+psycopg2-binary
+sqlalchemy

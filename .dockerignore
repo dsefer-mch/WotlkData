@@ -1,0 +1,10 @@
+/config/cred.json
+/dist
+/.git
+/.gitignore
+/tests
+/src/__pycache__
+/src/raw_data
+/src/testdummy.py
+/src/wotlk_db_BY_MCH.egg-info
+/src/wotlktst_sraper.py

@@ -19,6 +19,9 @@ class ScraperBot():
         if headless:
             options.add_argument("--headless")
         options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--remote-debugging-port=9222")
+        options.add_argument("--window-size=1920,1080")
         self.driver = webdriver.Chrome(
             ChromeDriverManager().install(), chrome_options=options)
         self.driver.maximize_window()

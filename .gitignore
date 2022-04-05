@@ -5,11 +5,14 @@ __pycache__
 seleniumTest1.py
 data_test.csv
 s3_script.py
-src/raw_data/
-dist/
-/config
+/src/raw_data/
+/dist
+/config/cred.json
 /src/testdummy.py
 /src/wotlktst_sraper.py
+/tests
+/src/wotlk_db_BY_MCH.egg-info
+
 
 # C extensions
 *.so
