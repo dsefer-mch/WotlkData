@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import psycopg2
 from sqlalchemy import create_engine
+import os
 #  Client
 
 
@@ -28,11 +29,10 @@ class Client:
             # Store credentials to the global namespace
             global credentials
             credentials = json.load(json_file)
-        # Use credentials to log in
-        return cls(credentials["user"],
-                   credentials["password"],
-                   credentials["database"],
-                   credentials["host"])
+            return cls(credentials["user"],
+                       credentials["password"],
+                       credentials["database"],
+                       credentials["host"])
 
 
 class Load:
@@ -65,6 +65,11 @@ class Load:
     @classmethod
     # One-step create table from pandas df
     def create_and_load_pd(cls, data, tablename):
+        # user = os.getenv("USER")
+        # password = os.getenv("PASS")
+        # host = os.getenv("HOST")
+        # database = os.getenv("DATABASE")
+        # cred_list = [user, password, host, database]
         try:
             # Create sqlalchemy engine for pandas df.to_sql function
             engine = create_engine('postgresql+psycopg2://{0}:{1}@{2}/{3}'
@@ -74,12 +79,16 @@ class Load:
                                            credentials["database"]
                                            )
                                    )
+            # engine = create_engine('postgresql+psycopg2://{0}:{1}@{2}/{3}'
+            #                        .format(*cred_list)
+            #                        )
         except Exception as ex:
             print('Exception:')
             print(ex)
         try:
             # Do not store into postgres with an index column
-            data.to_sql("{0}".format(tablename), con=engine, index=False, if_exists='replace')
+            data.to_sql("{0}".format(tablename), con=engine,
+                        index=False, if_exists='replace')
             print("Created table: {0}".format(tablename))
         except Exception as ex:
             print('Exception:')

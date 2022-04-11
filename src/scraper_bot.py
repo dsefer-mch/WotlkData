@@ -69,7 +69,6 @@ class ScraperBot():
                 obj = self.driver.find_element(By.XPATH, xpath)
             except ex.NoSuchElementException:
                 print('Element not found @ <hoover_over> by xpath.')
-                # self.shut()
         action.move_to_element(obj)
         action.perform()
 
@@ -180,5 +179,4 @@ class ScraperBot():
 if __name__ == '__main__':
     bot = ScraperBot()
     bot.accept_cookies(xpath='//*[@class="ncmp__btn"]')
-    bot.delete_cookies()
     bot.driver.quit()

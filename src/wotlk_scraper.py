@@ -3,6 +3,7 @@ from aws_rds_client import Client
 from aws_rds_client import Query
 from aws_rds_client import Meta
 from aws_rds_client import Load
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,6 +16,7 @@ import requests
 import io
 from PIL import Image
 import datetime
+import json
 
 
 class Scraper(ScraperBot):
@@ -63,7 +65,6 @@ class Scraper(ScraperBot):
             name=self.dp_dir_name, dir_path=self.curr_dir_path + '/raw_data')
         self.img_dir = self.create_dir(
             name='images', dir_path=self.dpoint_name)
-        print(self.img_dir, 'self.img.dir')
 
     def nav_to_main_page(self):
         """
@@ -71,29 +72,27 @@ class Scraper(ScraperBot):
         """
         self.set_url('https://wotlkdb.com/')
         wait = WebDriverWait(self.driver, 10)
-        wait.until(EC.presence_of_element_located(
-            (By.XPATH, '//*[@class="ncmp__btn"]')))
-        self.accept_cookies(xpath='//*[@class="ncmp__btn"]')
+        try:
+            wait.until(EC.presence_of_element_located(
+                (By.XPATH, '//*[@class="ncmp__btn"]')))
+            self.accept_cookies(xpath='//*[@class="ncmp__btn"]')
+        except TimeoutException:
+            print("Cookies timeout exeption.")
         self.hoover_over(text='Database')
         self.hoover_over(xpath="//span[text()='Items']")
         if self.item in Scraper.weapons:
             self.hoover_over(text='Weapons')
-            self.click_text(text=self.item)
-            filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
-            if filter_switch == 'Create a filter':
-                self.click_xpath(xpath='//*[@id="fi_toggle"]')
-        elif self.item in Scraper.armor_08:
+        elif self.item in Scraper.armor or self.item in Scraper.armor_08:
             self.hoover_over(text='Armor')
             if self.item in Scraper.armor_08:
                 self.hoover_over(text=self.arm_type)
-            self.click_text(text=self.item)
-            filter_switch = self.reading_elem(
-                xpath='//*[@id="fi_toggle"]')
-            if filter_switch == 'Create a filter':
-                self.click_xpath(xpath='//*[@id="fi_toggle"]')
         else:
             print("Please correct item argument.")
             self.shut()
+        self.click_text(text=self.item)
+        filter_switch = self.reading_elem(xpath='//*[@id="fi_toggle"]')
+        if filter_switch == 'Create a filter':
+            self.click_xpath(xpath='//*[@id="fi_toggle"]')
 
     def use_web_filter(self):
         """
@@ -101,7 +100,7 @@ class Scraper(ScraperBot):
         The largest rang is 1 - 290.
         """
         min_item_lvl = 1
-        max_item_lvl = 190  # Change it for less or more scraping 10 -290
+        max_item_lvl = 280  # Change it for less or more scraping 10 -290
         if self.verbose:
             print('Range of >item level< stat are set to - min:',
                   min_item_lvl, ', max:', max_item_lvl)
@@ -136,6 +135,8 @@ class Scraper(ScraperBot):
         Scraping item data.
         """
 
+        list_data_lib = []
+        list_url_lib = []
         if len(self.list_couples) != 0:
             for couple in self.list_couples:
                 id0 = self.list_couples.index(couple)
@@ -156,13 +157,15 @@ class Scraper(ScraperBot):
                     'Web Item Number': couple[0],
                     'Item Info': scraped_data
                 }
-                self.df = self.df.append(data_lib, ignore_index=True)
+                list_data_lib.append(data_lib)
+                self.df = pd.DataFrame.from_records(list_data_lib)
 
                 url_lib = {
                     'Web Item Number': couple[0],
                     'Image source link': item_url
                 }
-                self.df_img = self.df_img.append(url_lib, ignore_index=True)
+                list_url_lib.append(url_lib)
+                self.df_img = pd.DataFrame.from_records(list_url_lib)
                 self.download_img(src_url=couple[1], id=id)
 
             self.driver.quit()
@@ -181,7 +184,25 @@ class Scraper(ScraperBot):
         self.df_img.to_csv(self.dpoint_name + '/images_link_data.csv')
 
         # uploading data to AWS RDS
-        Client.from_json(self.cred_path)
+        # Client.from_json(self.cred_path)    #<- this is local call out
+        # env variable set on the container running
+
+  
+        cred_dict ={
+            "user" : os.getenv("USER"),
+            "password" : os.getenv("PASS"),
+            "host" : os.getenv("HOST"),
+            "database" : os.getenv("DATABASE")
+        }
+  
+        with open("rds_cred.json", "w") as jf:
+            json.dump(cred_dict, jf)
+        Client.from_json("rds_cred.json")
+        # user = os.getenv("USER")
+        # password = os.getenv("PASS")
+        # host = os.getenv("HOST")
+        # database = os.getenv("DATABASE")
+        # Client(user, password, database, host)
         Load.create_and_load_pd(self.df, f'data_of_{self.dp_dir_name}')
         res = Meta.checkTableExists(self.cred_path, tablename=image_data_table)
         if res:
@@ -191,10 +212,10 @@ class Scraper(ScraperBot):
                 'SELECT * FROM image_data id JOIN image_data_demo d ON id."Web Item Number" = d."Web Item Number"')
             if df_query.empty:
                 appending_image_data_table_query = Query.query(
-                'INSERT INTO "image_data" ("Web Item Number", "Image source link") SELECT "Web Item Number", "Image source link" FROM "image_data_demo"')
+                    'INSERT INTO "image_data" ("Web Item Number", "Image source link") SELECT "Web Item Number", "Image source link" FROM "image_data_demo"')
             else:
                 unique_img_table_query = Query.query(
-                'SELECT * FROM image_data UNION SELECT * FROM image_data_demo')
+                    'SELECT * FROM image_data UNION SELECT * FROM image_data_demo')
                 Load.create_and_load_pd(unique_img_table_query, 'image_data1')
                 Load.drop('image_data')
                 new_data_df = Query.fetchall('image_data1')
@@ -204,17 +225,17 @@ class Scraper(ScraperBot):
         else:
             Load.create_and_load_pd(self.df_img, image_data_table)
 
-        #uploading data to AWS s3
-        self.s3_up(file_or_img_name=(self.dpoint_name + '/data.json'),
-                   bucket_name='wotk.proj', obj_name='/raw_data/' + self.dp_dir_name + '/data.json')
+        # # uploading data to AWS s3
+        # self.s3_up(file_or_img_name=(self.dpoint_name + '/data.json'),
+        #            bucket_name='wotk.proj', obj_name='/raw_data/' + self.dp_dir_name + '/data.json')
 
-        # uploading image to AWS s3
-        list_of_img_files = os.listdir(self.img_dir)
-        for file in list_of_img_files:
-            img_name = self.img_dir + '/' + file
-            s3_path = '/raw_data/' + self.dp_dir_name + '/image/' + file
-            self.s3_up(file_or_img_name=img_name,
-                       bucket_name='wotk.proj', obj_name=s3_path)
+        # # uploading image to AWS s3
+        # list_of_img_files = os.listdir(self.img_dir)
+        # for file in list_of_img_files:
+        #     img_name = self.img_dir + '/' + file
+        #     s3_path = '/raw_data/' + self.dp_dir_name + '/image/' + file
+        #     self.s3_up(file_or_img_name=img_name,
+        #                bucket_name='wotk.proj', obj_name=s3_path)
 
     def download_img(self, src_url, id):
         """
@@ -253,30 +274,36 @@ class Scraper(ScraperBot):
 
 if __name__ == '__main__':
 
-    # for item in Scraper.armor_08:                                  #    <<-- Scraping armor from armor_08 list
+    # for item in Scraper.armor_08:  # <<-- Scraping armor from armor_08 list
     #     for armor_type in Scraper.armor_type:
-    #         scrape_test1 = Scraper(item, armor_type, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #         # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #         scrape_test1 = Scraper(
+    #             item, armor_type, verbose=True, headless=True)
     #         scrape_test1.local_config()
     #         scrape_test1.nav_to_main_page()
     #         scrape_test1.use_web_filter()
     #         scrape_test1.scrape_items()
-    #         scrape_test1.images()
+    #         scrape_test1.data_procesing()
 
-    # for item in Scraper.armor:                                      #   <<-- Screaping armor from armor list
-    #     scrape_test1 = Scraper(item, verbose=True, headless=False)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    # for item in Scraper.armor:  # <<-- Screaping armor from armor list
+    #     # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #     scrape_test1 = Scraper(item, verbose=True, headless=True)
     #     scrape_test1.local_config()
     #     scrape_test1.nav_to_main_page()
     #     scrape_test1.use_web_filter()
     #     scrape_test1.scrape_items()
-    #     scrape_test1.images()
+    #     scrape_test1.data_procesing()
 
-    # for item in Scraper.weapons:                                        #   <<-- Scraping weapons
-    #     scrape_test1 = Scraper(item, verbose=True, headless=True)   #   <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    # for item in Scraper.weapons:  # <<-- Scraping weapons
+    #     # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+    #     scrape_test1 = Scraper(item, verbose=True, headless=True)
     #     scrape_test1.local_config()
     #     scrape_test1.nav_to_main_page()
     #     scrape_test1.use_web_filter()
     #     scrape_test1.scrape_items()
-    #     scrape_test1.images()
+    #     scrape_test1.data_procesing()
+
+    # scrape_test1.shut()
 
     # -- HERE add headless=True for Ec2 , opt verbose.
     scrape_test1 = Scraper(item='Polearms',
