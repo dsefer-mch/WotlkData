@@ -34,6 +34,25 @@ class Client:
                        credentials["database"],
                        credentials["host"])
 
+    @classmethod
+    # Login from env variables
+    def env_var(cls):
+        global cred_dict
+        USER = os.getenv("USER")
+        PASS = os.getenv("PASS")
+        HOST = os.getenv("HOST")
+        DATABASE = os.getenv("DATABASE")
+        cred_dict = {
+            "user": USER,
+            "password": PASS,
+            "database": DATABASE,
+            "host": HOST
+        }
+        return cls(cred_dict["user"],
+                cred_dict["password"],
+                cred_dict["database"],
+                cred_dict["host"])
+
 
 class Load:
     @classmethod
@@ -65,28 +84,17 @@ class Load:
     @classmethod
     # One-step create table from pandas df
     def create_and_load_pd(cls, data, tablename):
-        # user = os.getenv("USER")
-        # password = os.getenv("PASS")
-        # host = os.getenv("HOST")
-        # database = os.getenv("DATABASE")
-        # cred_list = [user, password, host, database]
         try:
-            # Create sqlalchemy engine for pandas df.to_sql function
             engine = create_engine('postgresql+psycopg2://{0}:{1}@{2}/{3}'
-                                   .format(credentials["user"],
-                                           credentials["password"],
-                                           credentials["host"],
-                                           credentials["database"]
-                                           )
+                                   .format(cred_dict["user"],
+                                           cred_dict["password"],
+                                           cred_dict["host"],
+                                           cred_dict["database"])
                                    )
-            # engine = create_engine('postgresql+psycopg2://{0}:{1}@{2}/{3}'
-            #                        .format(*cred_list)
-            #                        )
         except Exception as ex:
             print('Exception:')
             print(ex)
         try:
-            # Do not store into postgres with an index column
             data.to_sql("{0}".format(tablename), con=engine,
                         index=False, if_exists='replace')
             print("Created table: {0}".format(tablename))
@@ -152,13 +160,21 @@ class Query:
     # Basic query
     def query(cls, query):
         cursor = connection.cursor()
-        cursor.execute("""{0}""".format(query))
-        result = cursor.fetchall()
-        colnames = [desc[0] for desc in cursor.description]
+        try:
+            cursor.execute("""{0}""".format(query))
+            connection.commit()
+            print("Query successful!", query)
+        except Exception as err:
+            print(f"Exeption for query >>{query}<< unsuccessful!: '{err}'")
+        try:
+            result = cursor.fetchall()
+            colnames = [desc[0] for desc in cursor.description]
+            cursor.close()
+            df = pd.DataFrame(result, columns=colnames)
+            return(df)
+        except psycopg2.ProgrammingError as pre:
+            print('Querry exeption:', pre)
         cursor.close()
-        df = pd.DataFrame(result, columns=colnames)
-        return(df)
-
 
 class Meta:
     @classmethod

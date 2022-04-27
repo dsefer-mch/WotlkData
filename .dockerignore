@@ -8,3 +8,4 @@
 /src/testdummy.py
 /src/wotlk_db_BY_MCH.egg-info
 /src/wotlktst_sraper.py
+config/prometheus.yml

@@ -12,6 +12,7 @@ s3_script.py
 /src/wotlktst_sraper.py
 /tests
 /src/wotlk_db_BY_MCH.egg-info
+config/prometheus.yml
 
 
 # C extensions

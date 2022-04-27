@@ -16,7 +16,7 @@ import requests
 import io
 from PIL import Image
 import datetime
-import json
+import boto3
 
 
 class Scraper(ScraperBot):
@@ -55,6 +55,10 @@ class Scraper(ScraperBot):
         self.cred_path = self.par_dir_path + '/config/cred.json'
 
     def local_config(self):
+        """
+        Creates local /raw_data directory and sets paths
+        """
+
         if os.path.isdir(self.curr_dir_path + '/raw_data') == False:
             self.create_dir(name='raw_data', dir_path=self.curr_dir_path)
         if self.item in Scraper.armor_08:
@@ -100,7 +104,7 @@ class Scraper(ScraperBot):
         The largest rang is 1 - 290.
         """
         min_item_lvl = 1
-        max_item_lvl = 280  # Change it for less or more scraping 10 -290
+        max_item_lvl = 290  # Change it for less or more scraping 10 -290
         if self.verbose:
             print('Range of >item level< stat are set to - min:',
                   min_item_lvl, ', max:', max_item_lvl)
@@ -175,6 +179,9 @@ class Scraper(ScraperBot):
             self.shut()
 
     def data_procesing(self):
+        """
+        Saves data localy and AWS - EC2 & RDS.
+        """
 
         image_data_table = "image_data"
 
@@ -183,26 +190,14 @@ class Scraper(ScraperBot):
         self.df.to_csv(self.dpoint_name + '/data.csv')
         self.df_img.to_csv(self.dpoint_name + '/images_link_data.csv')
 
-        # uploading data to AWS RDS
-        # Client.from_json(self.cred_path)    #<- this is local call out
-        # env variable set on the container running
+        # uploading data to AWS RDS local call out
+        # Client.from_json(self.cred_path)
+        # with open("rds_cred.json", "w") as jf:
+        #     json.dump(cred_dict, jf)
 
-  
-        cred_dict ={
-            "user" : os.getenv("USER"),
-            "password" : os.getenv("PASS"),
-            "host" : os.getenv("HOST"),
-            "database" : os.getenv("DATABASE")
-        }
-  
-        with open("rds_cred.json", "w") as jf:
-            json.dump(cred_dict, jf)
-        Client.from_json("rds_cred.json")
-        # user = os.getenv("USER")
-        # password = os.getenv("PASS")
-        # host = os.getenv("HOST")
-        # database = os.getenv("DATABASE")
-        # Client(user, password, database, host)
+        # uploading data to AWS RDS docker-EC2
+        Client.env_var()
+
         Load.create_and_load_pd(self.df, f'data_of_{self.dp_dir_name}')
         res = Meta.checkTableExists(self.cred_path, tablename=image_data_table)
         if res:
@@ -212,7 +207,7 @@ class Scraper(ScraperBot):
                 'SELECT * FROM image_data id JOIN image_data_demo d ON id."Web Item Number" = d."Web Item Number"')
             if df_query.empty:
                 appending_image_data_table_query = Query.query(
-                    'INSERT INTO "image_data" ("Web Item Number", "Image source link") SELECT "Web Item Number", "Image source link" FROM "image_data_demo"')
+                    'INSERT INTO "image_data" ("Web Item Number", "Image source link") SELECT * FROM "image_data_demo"')
             else:
                 unique_img_table_query = Query.query(
                     'SELECT * FROM image_data UNION SELECT * FROM image_data_demo')
@@ -225,21 +220,33 @@ class Scraper(ScraperBot):
         else:
             Load.create_and_load_pd(self.df_img, image_data_table)
 
-        # # uploading data to AWS s3
-        # self.s3_up(file_or_img_name=(self.dpoint_name + '/data.json'),
-        #            bucket_name='wotk.proj', obj_name='/raw_data/' + self.dp_dir_name + '/data.json')
+        s3_client = boto3.client('s3')
+        try:
+            response = s3_client.upload_file(file_name=self.dpoint_name + '/data.json',
+                                             bucket='wotk.proj',
+                                             object_name='/raw_data/' + self.dp_dir_name + '/data.json'
+                                             )
+            print('Image uploaded to s3')
+        except:
+            print('File (image) NOT uploaded!')
 
         # # uploading image to AWS s3
-        # list_of_img_files = os.listdir(self.img_dir)
-        # for file in list_of_img_files:
-        #     img_name = self.img_dir + '/' + file
-        #     s3_path = '/raw_data/' + self.dp_dir_name + '/image/' + file
-        #     self.s3_up(file_or_img_name=img_name,
-        #                bucket_name='wotk.proj', obj_name=s3_path)
+        list_of_img_files = os.listdir(self.img_dir)
+        for file in list_of_img_files:
+            img_name = self.img_dir + '/' + file
+            s3_path = '/raw_data/' + self.dp_dir_name + '/image/' + file
+            try:
+                response = s3_client.upload_file(file_name=img_name,
+                                                 bucket='wotk.proj',
+                                                 object_name=s3_path
+                                                 )
+                print('Image uploaded to s3')
+            except:
+                print('File (image) NOT uploaded!')
 
     def download_img(self, src_url, id):
         """
-        Downloading and saving images local & on s3.
+        Downloading and saving images localy.
         """
         try:
             r = requests.get(src_url).content
@@ -274,42 +281,42 @@ class Scraper(ScraperBot):
 
 if __name__ == '__main__':
 
-    # for item in Scraper.armor_08:  # <<-- Scraping armor from armor_08 list
-    #     for armor_type in Scraper.armor_type:
-    #         # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-    #         scrape_test1 = Scraper(
-    #             item, armor_type, verbose=True, headless=True)
-    #         scrape_test1.local_config()
-    #         scrape_test1.nav_to_main_page()
-    #         scrape_test1.use_web_filter()
-    #         scrape_test1.scrape_items()
-    #         scrape_test1.data_procesing()
+    for item in Scraper.armor_08:  # <<-- Scraping armor from armor_08 list
+        for armor_type in Scraper.armor_type:
+            # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+            scrape_test1 = Scraper(
+                item, armor_type, verbose=True, headless=True)
+            scrape_test1.local_config()
+            scrape_test1.nav_to_main_page()
+            scrape_test1.use_web_filter()
+            scrape_test1.scrape_items()
+            scrape_test1.data_procesing()
 
-    # for item in Scraper.armor:  # <<-- Screaping armor from armor list
-    #     # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-    #     scrape_test1 = Scraper(item, verbose=True, headless=True)
-    #     scrape_test1.local_config()
-    #     scrape_test1.nav_to_main_page()
-    #     scrape_test1.use_web_filter()
-    #     scrape_test1.scrape_items()
-    #     scrape_test1.data_procesing()
+    for item in Scraper.armor:  # <<-- Screaping armor from armor list
+        # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+        scrape_test1 = Scraper(item, verbose=True, headless=True)
+        scrape_test1.local_config()
+        scrape_test1.nav_to_main_page()
+        scrape_test1.use_web_filter()
+        scrape_test1.scrape_items()
+        scrape_test1.data_procesing()
 
-    # for item in Scraper.weapons:  # <<-- Scraping weapons
-    #     # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
-    #     scrape_test1 = Scraper(item, verbose=True, headless=True)
-    #     scrape_test1.local_config()
-    #     scrape_test1.nav_to_main_page()
-    #     scrape_test1.use_web_filter()
-    #     scrape_test1.scrape_items()
-    #     scrape_test1.data_procesing()
+    for item in Scraper.weapons:  # <<-- Scraping weapons
+        # <<-- HERE add headless=True for Ec2 , opt verbose. Pattern doesn't matter
+        scrape_test1 = Scraper(item, verbose=True, headless=True)
+        scrape_test1.local_config()
+        scrape_test1.nav_to_main_page()
+        scrape_test1.use_web_filter()
+        scrape_test1.scrape_items()
+        scrape_test1.data_procesing()
 
-    # scrape_test1.shut()
+    scrape_test1.shut()
 
-    # -- HERE add headless=True for Ec2 , opt verbose.
-    scrape_test1 = Scraper(item='Polearms',
-                           verbose=True, headless=True)
-    scrape_test1.local_config()
-    scrape_test1.nav_to_main_page()
-    scrape_test1.use_web_filter()
-    scrape_test1.scrape_items()
-    scrape_test1.data_procesing()
+    # # -- HERE add headless=True for Ec2 , opt verbose.
+    # scrape_test1 = Scraper(item='Bows',
+    #                        verbose=True, headless=True)
+    # scrape_test1.local_config()
+    # scrape_test1.nav_to_main_page()
+    # scrape_test1.use_web_filter()
+    # scrape_test1.scrape_items()
+    # scrape_test1.data_procesing()

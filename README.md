@@ -2,6 +2,7 @@
 
 AiCore Scraping Project
 Scrapes World of warcraft (The Lich King v3.5.5) in game character inventory items.
+This is a web-site, I'm familiar with and is easy to scrape. It doesn't get reguary changes (if it get any changes at all).
 
 ## About the game
 
@@ -24,7 +25,8 @@ Item level serves as a rough indicator of the power and usefulness of an item, d
 Lists : 'weapons' , 'armor' and 'armor_08' defines all the items available for scraping.
 They are to be used as arguments to navigate to the main search page through drop down menu.
 Main search page has filter section on the top, obtainable with a button(sometimes the filter 
-appears to be on and the button change it's function to off). Items are filtered on item level base. 
+appears to be on and the button change it's function to off). 
+Items are filtered on item level base. 
 Main page can only show 50 items at a time and up to 300 items obtainable with next page button.
 To avoid missing an item while scraping, use_web_filter function set ranges of item level with step 10.
 To get smaller than the max range(1-290) of items sctaped (for testing), variables min_item_lvl and max_item_lvl
@@ -42,17 +44,49 @@ Headless and verbose options are available (headless for scraping without GIU, v
 of scraping process)and can be set to True or False while instantiate the Scraper class.
 Directory named /raw_data will be created initaily in the file's current directory.
 Ignore the error about already existance of this directory.
-
+To upload on AWS S3, EC2 needs credentials to be configured inside the EC2 (aws configure).
+Run docker image with :
+           sudo docker run -d -p 5432:5432   -e "USER={DB master user name}"   -e "PASS={DB master password}"  -e "DATABASE=postgres" /
+             -e "HOST={RDS end point}"   993845/wotlk:v{highest version}
 ## Dependencies 
 
 python                    3.9.7 
 selenium                  4.1.0
 webdriver-manager         3.5.2 
 pandas                    1.3.4
-pillow                    9.0.1 
+pillow                    9.0.1
+urllib3
+boto3
+uuid
+requests
+datetime
+psycopg2-binary
+sqlalchemy
 
 ## Storing data
 
-Data is stored in directory /raw_data.Images take places inside /images directory inside /raw_data
+Data is stored in directory /raw_data localy, RDS and S3.
+To opt-out uploading to the cloud - comment out /src/wotlk_scraper.py , lines : 199-231.
+To upload to RDS from local computer - comment out /src/wotlk_scraper.py , lines : 194-196 
+and enter your RDS cred in /config/cred_template.json (Don't forget to rename it as cred.json).
+
+## Testing
+
+Unittest can be run from test.py
+It tests all the functions the scraper bot has.
+
+## Monitoring
+
+Scraper has been monitored with Grafana, set to visualise Prometheus (node exporter) metrics.
+Configuration of the prometheus.yml-file take place on EC2 instance , while Grafana can be run localy or in additional EC2 instance.
+Target port for monitoring the node is 9100, while grafana is listen to port 3000.
+Prometheus can be run as a second container along with the scraper directly from docker-hub.
+
+
+
+
+
+
+
 
 

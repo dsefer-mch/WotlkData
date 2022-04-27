@@ -9,10 +9,10 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 import sys
 import os
-import boto3
 
 
 class ScraperBot():
+
     def __init__(self, headless=False, verbose=False):
 
         options = Options()
@@ -28,6 +28,7 @@ class ScraperBot():
         self.verbose = verbose
 
     def accept_cookies(self, xpath=None, iframe=None):
+
         accept_button = None
         if iframe:
             try:
@@ -160,16 +161,6 @@ class ScraperBot():
                 print(
                     'Existing directory:', dir_name)
         return path
-
-    def s3_up(self, file_or_img_name, bucket_name, obj_name):
-        # , aws_access_key_id=#aws_config_file, region_name=...,aws_secret_access_key=...)
-        s3_client = boto3.client('s3')
-        try:
-            response = s3_client.upload_file(
-                file_or_img_name, bucket_name, obj_name)
-            print('Image uploaded to s3')
-        except:
-            print('File (image) NOT uploaded!')
 
     def shut(self):
         self.driver.quit()
