@@ -32,7 +32,7 @@ jobs:
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildex-action@v1
+        uses: docker/setup-buildx-action@v1
 
       - name: Build and push
         uses: docker/docker/build-push-action@v2
