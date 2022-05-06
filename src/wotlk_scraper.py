@@ -196,53 +196,53 @@ class Scraper(ScraperBot):
         #     json.dump(cred_dict, jf)
 
         # uploading data to AWS RDS docker-EC2
-        Client.env_var()
+        # Client.env_var()
 
-        Load.create_and_load_pd(self.df, f'data_of_{self.dp_dir_name}')
-        res = Meta.checkTableExists(self.cred_path, tablename=image_data_table)
-        if res:
-            Load.create_and_load_pd(self.df_img, 'image_data_demo')
-            # scalability check
-            df_query = Query.query(
-                'SELECT * FROM image_data id JOIN image_data_demo d ON id."Web Item Number" = d."Web Item Number"')
-            if df_query.empty:
-                appending_image_data_table_query = Query.query(
-                    'INSERT INTO "image_data" ("Web Item Number", "Image source link") SELECT * FROM "image_data_demo"')
-            else:
-                unique_img_table_query = Query.query(
-                    'SELECT * FROM image_data UNION SELECT * FROM image_data_demo')
-                Load.create_and_load_pd(unique_img_table_query, 'image_data1')
-                Load.drop('image_data')
-                new_data_df = Query.fetchall('image_data1')
-                Load.create_and_load_pd(new_data_df, 'image_data')
-                Load.drop('image_data1')
-            Load.drop('image_data_demo')
-        else:
-            Load.create_and_load_pd(self.df_img, image_data_table)
+        # Load.create_and_load_pd(self.df, f'data_of_{self.dp_dir_name}')
+        # res = Meta.checkTableExists(self.cred_path, tablename=image_data_table)
+        # if res:
+        #     Load.create_and_load_pd(self.df_img, 'image_data_demo')
+        #     # scalability check
+        #     df_query = Query.query(
+        #         'SELECT * FROM image_data id JOIN image_data_demo d ON id."Web Item Number" = d."Web Item Number"')
+        #     if df_query.empty:
+        #         appending_image_data_table_query = Query.query(
+        #             'INSERT INTO "image_data" ("Web Item Number", "Image source link") SELECT * FROM "image_data_demo"')
+        #     else:
+        #         unique_img_table_query = Query.query(
+        #             'SELECT * FROM image_data UNION SELECT * FROM image_data_demo')
+        #         Load.create_and_load_pd(unique_img_table_query, 'image_data1')
+        #         Load.drop('image_data')
+        #         new_data_df = Query.fetchall('image_data1')
+        #         Load.create_and_load_pd(new_data_df, 'image_data')
+        #         Load.drop('image_data1')
+        #     Load.drop('image_data_demo')
+        # else:
+        #     Load.create_and_load_pd(self.df_img, image_data_table)
 
-        s3_client = boto3.client('s3')
-        try:
-            response = s3_client.upload_file(file_name=self.dpoint_name + '/data.json',
-                                             bucket='wotk.proj',
-                                             object_name='/raw_data/' + self.dp_dir_name + '/data.json'
-                                             )
-            print('Image uploaded to s3')
-        except:
-            print('File (image) NOT uploaded!')
+        # s3_client = boto3.client('s3')
+        # try:
+        #     response = s3_client.upload_file(file_name=self.dpoint_name + '/data.json',
+        #                                      bucket='wotk.proj',
+        #                                      object_name='/raw_data/' + self.dp_dir_name + '/data.json'
+        #                                      )
+        #     print('Image uploaded to s3')
+        # except:
+        #     print('File (image) NOT uploaded!')
 
-        # # uploading image to AWS s3
-        list_of_img_files = os.listdir(self.img_dir)
-        for file in list_of_img_files:
-            img_name = self.img_dir + '/' + file
-            s3_path = '/raw_data/' + self.dp_dir_name + '/image/' + file
-            try:
-                response = s3_client.upload_file(file_name=img_name,
-                                                 bucket='wotk.proj',
-                                                 object_name=s3_path
-                                                 )
-                print('Image uploaded to s3')
-            except:
-                print('File (image) NOT uploaded!')
+        # # # uploading image to AWS s3
+        # list_of_img_files = os.listdir(self.img_dir)
+        # for file in list_of_img_files:
+        #     img_name = self.img_dir + '/' + file
+        #     s3_path = '/raw_data/' + self.dp_dir_name + '/image/' + file
+        #     try:
+        #         response = s3_client.upload_file(file_name=img_name,
+        #                                          bucket='wotk.proj',
+        #                                          object_name=s3_path
+        #                                          )
+        #         print('Image uploaded to s3')
+        #     except:
+        #         print('File (image) NOT uploaded!')
 
     def download_img(self, src_url, id):
         """
